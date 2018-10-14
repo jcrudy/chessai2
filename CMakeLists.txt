@@ -1,22 +1,33 @@
-cmake_minimum_required(VERSION 3.3.0)
+cmake_minimum_required(VERSION 3.12)
+project(chessai2 VERSION 0.1.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
+add_library(boardlib src/boardlib.cc)
+add_executable(chessai2 src/chessai2.cc)
+add_executable(run_tests test/run_tests.cc)
 
-set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR})
+target_include_directories(boardlib
+	PUBLIC
+		$<INSTALL_INTERFACE:include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 
-set(DIVISIBLE_INSTALL_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
-set(DIVISIBLE_INSTALL_BIN_DIR ${PROJECT_SOURCE_DIR}/bin)
-set(DIVISIBLE_INSTALL_LIB_DIR ${PROJECT_SOURCE_DIR}/lib)
+target_include_directories(run_tests
+	PUBLIC
+		$<INSTALL_INTERFACE:include>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 
-set(DIVISION_HEADERS_DIR ${PROJECT_SOURCE_DIR}/src)
+add_dependencies(run_tests boardlib)
+add_dependencies(chessai2 boardlib)
 
-include_directories(${DIVISIBLE_INSTALL_INCLUDE_DIR})
-include_directories(${DIVISION_HEADERS_DIR})
-
-add_subdirectory(src)
-add_subdirectory(test)
+target_compile_features(chessai2 PRIVATE cxx_std_17)
+target_compile_features(boardlib PRIVATE cxx_std_17)
+target_compile_features(run_tests PRIVATE cxx_std_17)
 
 
-project (chessai2)
-add_executable(chessai2 src/chessai2.cpp)
+
+

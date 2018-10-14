@@ -3,14 +3,15 @@
  * long ago by a Python script.
  */
 
-const ZobristKey ZobristHasher::zobrist_white_castle_king_ = 0x4813FCAA66F292EDULL;
-const ZobristKey ZobristHasher::zobrist_white_castle_queen_ = 0xA8B3B3DEEFBFFA3DULL;
-const ZobristKey ZobristHasher::zobrist_black_castle_king_ = 0xC0426A0CE5346059ULL;
-const ZobristKey ZobristHasher::zobrist_black_castle_queen_ = 0x4B15253AB6FE7D5ULL;
-const ZobristKey ZobristHasher::zobrist_blacks_turn_ = 0x17297DB8E6145787ULL;
-const std::array<ZobristKey,
-		(ZobristHasher::squares_per_board_)
-				* (ZobristHasher::number_of_piece_types_)> ZobristHasher::zobrist_table_ =
+static constexpr unsigned int kNumberOfPieceTypes = 14;
+static constexpr ZobristKey kZobristWhiteCastleKing = 0x4813FCAA66F292EDULL;
+static constexpr ZobristKey kZobristWhiteCastleQueen = 0xA8B3B3DEEFBFFA3DULL;
+static constexpr ZobristKey kZobristBlackCastleKing = 0xC0426A0CE5346059ULL;
+static constexpr ZobristKey kZobristBlackCastleQueen = 0x4B15253AB6FE7D5ULL;
+static constexpr ZobristKey kZobristWhitesTurn = 0x17297DB8E6145787ULL;
+static constexpr std::array<ZobristKey,
+		kSquaresPerBoard
+				* kNumberOfPieceTypes> zobrist_table_ =
 		{ 0x91B7584A2265B1F5ULL, 0xCD613E30D8F16ADFULL, 0x1027C4D1C386BBC4ULL,
 				0x1E2FEB89414C343CULL, 0xC2CE6F447ED4D57BULL,
 				0x78E510617311D8A3ULL, 0x612E7696A6CECC1BULL,
