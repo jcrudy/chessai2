@@ -782,37 +782,6 @@ struct MoveRecord{
 	unsigned int threefold_repetition_clock_after;
 };
 
-//public:
-//	/*
-//	 * MoveRecord can be copied.
-//	 */
-//	MoveRecord(const MoveRecord& rhs) = default;
-//	MoveRecord& operator=(const MoveRecord& rhs) = default;
-//
-//	MoveRecord(const SquareIndex from_square, const SquareIndex to_square,
-//			const Piece moved_piece, const Piece placed_piece,
-//			const Piece captured_piece,
-//			const unsigned int previous_halfmove_clock,
-//			const unsigned int previous_threefold_repetition_clock,
-//			const SquareIndex previous_en_passant, const bool lost_white_castle_king,
-//			const bool lost_white_castle_queen, const bool lost_black_castle_king,
-//			const bool lost_black_castle_queen){
-//		from_square_ = from_square;
-//		to_square_ = to_square;
-//		captured_piece_ = captured_piece;
-//		moved_piece_ = moved_piece;
-//		placed_piece_ = placed_piece;
-//		previous_halfmove_clock_ = previous_halfmove_clock;
-//		previous_threefold_repetition_clock_ = previous_threefold_repetition_clock;
-//		previous_en_passant_ = previous_en_passant;
-//		lost_white_castle_king_ = lost_white_castle_king;
-//		lost_white_castle_queen_ = lost_white_castle_queen;
-//		lost_black_castle_king_ = lost_black_castle_king;
-//		lost_black_castle_queen_ = lost_black_castle_queen;
-//
-//	}
-//
-//};
 
 void split_string(const std::string& string_to_split,
 		const std::string& delimiter, std::vector<std::string>& output){
@@ -950,22 +919,6 @@ public:
 		en_passant_square_ = kNoEnPassant;
 	}
 
-//	BoardState(const BoardStateCore core, const unsigned int halfmove_clock,
-//			const unsigned int fullmove_counter
-//			){
-//		core_ = core;
-//		halfmove_clock_ = halfmove_clock;
-//		fullmove_counter_ = fullmove_counter;
-//		halfmove_counter_ = 0;
-//		threefold_repetition_clock_ = 0;
-//		piece_map_ = std::array<Piece, 64>();
-//		hash_ = ZobristHasher::hash(core_);
-//		record_ = std::vector<RecordEntry>();
-//		// Avoid allocation during game by reserving a bunch of memory now
-//		record_.reserve(10000);
-//		available_moves_ = std::array<SquareIndex, 64>();
-//
-//	}
 
 	/*
 	 * Get the piece located at square
@@ -1023,112 +976,135 @@ public:
 
 
 	/*
+	 * Update the available moves based on a move that was just
+	 * made.
+	 */
+	inline void update_available_moves(const MoveRecord& record){
+		// TODO: This
+	}
+
+	/*
+	 * Get the square that the en passant square refers to.  That is,
+	 * get the square where the pawn captured by en passant is located,
+	 * given the SquareIndex of the en passant square.
+	 */
+	inline static SquareIndex get_en_passant_target(
+			const SquareIndex en_passant_square){
+		const SquareIndex en_passant_rank = rank_index_of(en_passant_square);
+		const SquareIndex target_rank = en_passant_rank==3?2:5;
+		const SquareIndex target_file = file_index_of(en_passant_square);
+		return square_index_of(target_rank, target_file);
+	}
+
+	/*
+	 * Make a move and update all members accordingly.  Legality is
+	 * assumed, not checked.
+	 */
+	inline MoveRecord make_move(const Move& move){
+		const Piece moved_piece = get_piece_at(move.from_square);
+		const PieceKind moved_piece_kind = kind_of(moved_piece);
+		const Color moved_piece_color = color_of(moved_piece);
+		const Piece to_piece = get_piece_at(move.to_square);
+		const PieceKind to_piece_kind = kind_of(to_piece);
+		const Color to_piece_color = color_of(to_piece);
+		MoveRecord result;
+		result.from_square = move.from_square;
+		result.to_square = move.to_square;
+		result.moved_piece = moved_piece;
+		SquareIndex from_file, to_file, delta_file, from_rank,
+			castled_from_file, to_rank, delta_rank, en_passant_rank_after;
+
+		// Check for special move types.
+		if(to_piece_kind == PieceKind::EN_PASSANT
+				&& moved_piece_kind == PieceKind::PAWN){
+			// Assuming the current position was achieved legally,
+			// the above conditions guarantee that this move is an
+			// en passant capture.  Proceed accordingly.
+			result.captured_square = get_en_passant_target(move.to_square);
+			result.captured_piece = get_piece_at(result.captured_square);
+			result.placed_piece = result.moved_piece;
+
+		}else if(moved_piece_kind == PieceKind::KING){
+			from_file = file_index_of(result.from_square);
+			to_file = file_index_of(result.to_square);
+			delta_file = (from_file > to_file)?(from_file - to_file):(to_file - from_file);
+			if(delta_file == 2){
+				// Assuming this is a legal move, the above conditions
+				// guarantee that this move is a castle.  Proceed accordingly.
+				from_rank = rank_index_of(result.from_square);
+				if(from_file < 4){
+					result.castled_from_square = square_index_of(from_rank, 0);
+				}else{
+					result.castled_from_square = square_index_of(from_rank, 7);
+				}
+				result.castled_piece = get_piece_at(result.castled_from_square);
+
+				castled_from_file = file_index_of(result.castled_from_square);
+				if(castled_from_file < 4){
+					result.castled_to_square = square_index_of(from_rank, 3);
+				}else{
+					result.castled_to_square = square_index_of(from_rank, 5);
+				}
+
+
+			}
+		}else if(to_piece != Piece::NO_PIECE){
+			// Since en passant has already been ruled out, and since we are
+			// assuming the move is legal, this is a regular capture.
+			result.captured_square = result.to_square;
+			result.captured_piece = to_piece;
+		} // End check for special move types
+
+		// Check for promotion.
+		if(move.promotion != Piece::NO_PIECE){
+			result.placed_piece = move.promotion;
+		}else{
+			result.placed_piece = result.moved_piece;
+		}
+
+		// Check whether a pawn advanced 2 squares, creating a new potential
+		// en passant opportunity.
+		if(moved_piece_kind == PieceKind::PAWN){
+			from_rank = rank_index_of(result.from_square);
+			from_file = file_index_of(result.from_square);
+			to_rank = rank_index_of(result.to_square);
+			delta_rank = (moved_piece_color == Color::BLACK)?(from_rank - to_rank):(to_rank - from_rank);
+			if(delta_rank == 2){
+				// Assuming this is a legal move, it has created a potential en passant
+				// opportunity.  Our board representation does not require there to be a
+				// pawn present capable of capturing the en passant square, so there was no
+				// need to check for that.
+				en_passant_rank_after = (moved_piece_color == Color::BLACK)?(to_rank + 1):(from_rank + 1);
+				result.en_passant_square_after = square_index_of(en_passant_rank_after, from_file);
+				result.en_passant_piece_after = (moved_piece_color == Color::BLACK)?(Piece::BLACK_PAWN):(Piece::WHITE_PAWN);
+			}
+		}
+
+		// Set the members for pre-existing en passant opportunity, if any.
+		result.en_passant_square_before = en_passant_square_;
+		if(result.en_passant_square_before != kNoEnPassant){
+			result.en_passant_piece_before = get_piece_at(result.en_passant_square_before);
+		} // Otherwise, result.en_passant_piece_before is already Piece::NO_PIECE.
+
+		// Determine changes to castle rights.
+
+		// Determine changes to threefold repetition and halfmove
+		// clocks.
+
+	}
+
+	/*
+	 * Un-make a recorded move and update all members accordingly.
+	 */
+	inline void unmake_move(MoveRecord& record){
+		// TODO: This
+	}
+
+	/*
 	 * Create a BoardState from a FEN formatted string. This function
 	 * doesn't need to be fast.
 	 */
 	static BoardState from_fen(std::string fen);
-//	static BoardState from_fen(std::string fen){
-//		// Start with a blank BoardState, which will be filled in
-//		// later.
-//		BoardState result;
-//
-//		// Break the FEN string into parts.
-//		std::vector<std::string> parts = split_string(fen, " ");
-//		if(parts.size() < 5 || parts.size() > 6){
-//			throw "Improperly formated string passed to BoardState::from_fen.";
-//		}
-//		std::string board_part = parts[0];
-//		std::string turn_part = parts[1];
-//		std::string castle_rights_part;
-//		if(parts.size() == 6){
-//			castle_rights_part = parts[2];
-//		}
-//		std::string en_passant_part = parts[parts.size() == 6?3:2];
-//		std::string halfmove_clock_part = parts[parts.size() == 6?4:3];
-//		std::string fullmove_counter_part = parts[parts.size() == 6?5:4];
-//
-//		// Break the board part of the FEN string into ranks.
-//		std::vector<std::string> rank_parts = split_string(board_part, "/");
-//		if(rank_parts.size() != kRanksPerBoard){
-//			throw "Improperly formated string passed to BoardState::from_fen.";
-//		}
-//
-//		// Place all the pieces in each rank.
-//		std::string rank_string;
-//		std::vector<std::string> rank_tokens;
-//		SquareIndex file_index;
-//		for(SquareIndex rank_index=0; rank_index<kRanksPerBoard; rank_index++){
-//			rank_string = rank_parts[rank_index];
-//			rank_tokens = tokenize_fen_rank(rank_string);
-//			file_index = 0;
-//			for(std::string token : rank_tokens){
-//				if(isdigit(token[0])){
-//					file_index += stoi(token);
-//				}else{
-//					if(token.size() != 1){
-//						throw "Improperly formated string passed to BoardState::from_fen.";
-//					}
-//					result.raw_place_piece(fen_to_piece(token[0]),
-//							square_index_of(rank_index, file_index));
-//					file_index += 1;
-//				}
-//				if(file_index >= kFilesPerBoard){
-//					throw "Improperly formated string passed to BoardState::from_fen.";
-//				}
-//			}
-//		}
-//		// All pieces have been placed with the possible exception of en passant.
-//
-//		// Set whose turn it is
-//		if(turn_part.size() != 1){
-//			throw "Improperly formated string passed to BoardState::from_fen.";
-//		}
-//		if(turn_part[0] == 'w'){
-//			result.set_whites_turn(true);
-//		}else{
-//			result.set_whites_turn(false);
-//		}
-//
-//		// Set castle rights
-//		if(castle_rights_part.size() > 4){
-//			throw "Improperly formated string passed to BoardState::from_fen.";
-//		}
-//		for(char castle_right : castle_rights_part){
-//			switch(castle_right){
-//			case 'K':
-//				result.set_white_castle_king(true);
-//				break;
-//			case 'Q':
-//				result.set_white_castle_queen(true);
-//				break;
-//			case 'k':
-//				result.set_black_castle_king(true);
-//				break;
-//			case 'q':
-//				result.set_black_castle_queen(true);
-//				break;
-//			default:
-//				throw "Improperly formated string passed to BoardState::from_fen.";
-//			}
-//		}
-//
-//		// Set en passant
-//		if(en_passant_part.size() > 0){
-//			result.raw_set_en_passant(result.core_.whites_turn_, algebraic_to_square_index(en_passant_part));
-//		}
-//
-//		// Set the clocks
-//		result.halfmove_clock_ = stoi(halfmove_clock_part);
-//		result.fullmove_counter_ = stoi(fullmove_counter_part);
-//
-//		// Calculate the current Zobrist hash
-//		result.hash_ = ZobristHasher::hash(result);
-//
-//		// Calculate available moves
-//		result.compute_available_moves();
-//
-//		return result;
-//	}
 
 	/*
 	 * Return a FEN formatted string based on the BoardState. This

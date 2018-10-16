@@ -3,7 +3,7 @@ project(chessai2 VERSION 0.1.0 LANGUAGES CXX)
 
 add_library(boardlib src/boardlib.cc)
 add_executable(chessai2 src/chessai2.cc)
-add_executable(run_tests test/run_tests.cc)
+add_executable(run_tests test/run_tests.cc test/test_fen_io.cc)
 
 target_include_directories(boardlib
 	PUBLIC
