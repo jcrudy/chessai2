@@ -463,16 +463,10 @@ void BoardState::raw_unplace_piece(const SquareIndex square){
 }
 void BoardState::raw_unplace_piece(const Piece piece, const SquareIndex square){
 	core_.raw_unplace_piece(piece, square);
-	piece_map_[square] = piece;
+	piece_map_[square] = Piece::NO_PIECE;
 }
 
-void BoardState::raw_set_en_passant(bool whites_turn, SquareIndex square){
-	Piece piece;
-	if(whites_turn){
-		piece = Piece::WHITE_EN_PASSANT;
-	}else{
-		piece = Piece::BLACK_EN_PASSANT;
-	}
+void BoardState::raw_set_en_passant(Piece piece, SquareIndex square){
 	raw_place_piece(piece, square);
 	en_passant_square_ = square;
 }
@@ -527,6 +521,22 @@ bool BoardState::operator==(const BoardState& rhs) const{
 			en_passant_square_==rhs.en_passant_square_;
 }
 
+BoardState BoardState::copy() const{
+	BoardState result;
+	result.core_ = core_;
+	result.halfmove_clock_ = halfmove_clock_;
+	result.fullmove_counter_ = fullmove_counter_;
+	result.halfmove_counter_ = halfmove_counter_;
+	result.threefold_repetition_clock_ = threefold_repetition_clock_;
+	result.piece_map_ = piece_map_;
+	result.hash_ = hash_;
+	result.record_ = record_;
+	result.en_passant_square_ = en_passant_square_;
+	result.move_targets_ = move_targets_;
+	result.move_origins_ = move_origins_;
+	return result;
+}
+
 ZobristKey BoardState::get_hash() const{
 	return hash_;
 }
@@ -574,6 +584,10 @@ void BoardState::compute_move_tables(){
 }
 
 void BoardState::update_move_tables(const MoveRecord& record){
+	// TODO: This
+}
+
+void BoardState::downdate_move_tables(const MoveRecord& record){
 	// TODO: This
 }
 
@@ -663,7 +677,7 @@ MoveRecord BoardState::compute_move_record(const Move& move){
 			// need to check for that.
 			en_passant_rank_after = (moved_piece_color == Color::BLACK)?(to_rank + 1):(from_rank + 1);
 			result.en_passant_square_after = square_index_of(en_passant_rank_after, from_file);
-			result.en_passant_piece_after = (moved_piece_color == Color::BLACK)?(Piece::BLACK_PAWN):(Piece::WHITE_PAWN);
+			result.en_passant_piece_after = (moved_piece_color == Color::BLACK)?(Piece::BLACK_EN_PASSANT):(Piece::WHITE_EN_PASSANT);
 		}
 	}
 
@@ -722,9 +736,55 @@ MoveRecord BoardState::make_move(const Move move){
 
 void BoardState::unmake_move(const MoveRecord& record){
 	// TODO: This
+
+	// Downdate the move tables.
+	downdate_move_tables(record);
+
+	// Downdate the Zobrist hash (which is the same as updating).
+	hash_ = ZobristHasher::update(hash_, record);
+
+	// Change whose turn it is.
+	set_whites_turn(!get_whites_turn());
+
+	// Decrement the counters.
+	fullmove_counter_ -= core_.whites_turn_?0:1;
+	halfmove_counter_--;
+
+	// Set the clocks.
+	halfmove_clock_ = record.halfmove_clock_before;
+	threefold_repetition_clock_ = record.threefold_repetition_clock_before;
+
+	// Downdate castle rights.
+	core_.white_castle_king_ ^= record.lost_white_castle_king;
+	core_.white_castle_queen_ ^= record.lost_white_castle_queen;
+	core_.black_castle_king_ ^= record.lost_black_castle_king;
+	core_.black_castle_queen_ ^= record.lost_black_castle_queen;
+
+	// Unset the en passant square.
+	raw_unset_en_passant();
+
+	// Downdate the board based on the moved, placed, captured, and
+	// castled pieces.
+	raw_unplace_piece(record.placed_piece, record.to_square);
+	if(record.castled_piece != Piece::NO_PIECE){
+		raw_unplace_piece(record.castled_piece, record.castled_to_square);
+		raw_place_piece(record.castled_piece, record.castled_from_square);
+	}
+	if(record.captured_piece != Piece::NO_PIECE){
+		raw_place_piece(record.captured_piece, record.captured_square);
+	}
+	raw_place_piece(record.moved_piece, record.from_square);
+
+	// Set the en passant square to its old value
+	if(record.en_passant_piece_before != Piece::NO_PIECE){
+		raw_set_en_passant(record.en_passant_piece_before, record.en_passant_square_before);
+	}
 }
 
 void BoardState::apply_move_record(const MoveRecord& record){
+	// Remove previous en passant position
+	raw_unset_en_passant();
+
 	// Update the board based on the moved, placed, captured, and
 	// castled pieces.
 	raw_unplace_piece(record.moved_piece, record.from_square);
@@ -738,8 +798,9 @@ void BoardState::apply_move_record(const MoveRecord& record){
 	raw_place_piece(record.placed_piece, record.to_square);
 
 	// Update the en passant square.
-	raw_change_en_passant(record.en_passant_piece_before, record.en_passant_piece_after,
-			record.en_passant_square_after);
+	if(record.en_passant_piece_after != Piece::NO_PIECE){
+		raw_set_en_passant(record.en_passant_piece_after, record.en_passant_square_after);
+	}
 
 	// Update castle rights.
 	core_.white_castle_king_ ^= record.lost_white_castle_king;
@@ -852,7 +913,9 @@ BoardState BoardState::from_fen(std::string fen){
 
 	// Set en passant
 	if(en_passant_part != "-"){
-		result.raw_set_en_passant(result.core_.whites_turn_, algebraic_to_square_index(en_passant_part));
+		result.raw_set_en_passant(
+				result.core_.whites_turn_?Piece::WHITE_EN_PASSANT:Piece::BLACK_EN_PASSANT,
+				algebraic_to_square_index(en_passant_part));
 	}
 
 	// Set the clocks

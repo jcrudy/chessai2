@@ -595,7 +595,7 @@ private:
 	 * caller must update them after the call to ensure a consistent
 	 * BoardState.
 	 */
-	void raw_set_en_passant(bool whites_turn, SquareIndex square);
+	void raw_set_en_passant(Piece piece, SquareIndex square);
 
 	/*
 	 * Remove the en passant square. The available_moves_ and hash_ will
@@ -641,6 +641,11 @@ public:
 	bool operator==(const BoardState& rhs) const;
 
 	/*
+	 * Explicitly copy BoardState.
+	 */
+	BoardState copy() const;
+
+	/*
 	 * Get the hash value for the current BoardState.
 	 */
 	ZobristKey get_hash() const;
@@ -675,6 +680,12 @@ public:
 	 * made.
 	 */
 	void update_move_tables(const MoveRecord& record);
+
+	/*
+	 * Downdate the available moves based on a move that is about
+	 * to be unmade.
+	 */
+	void downdate_move_tables(const MoveRecord& record);
 
 	/*
 	 * Get the square that the en passant square refers to.  That is,
