@@ -3,7 +3,7 @@ project(chessai2 VERSION 0.1.0 LANGUAGES CXX)
 
 add_library(boardlib src/boardlib.cc)
 add_executable(chessai2 src/chessai2.cc)
-add_executable(run_tests test/run_tests.cc test/test_fen_io.cc)
+add_executable(run_tests test/run_tests.cc test/test_fen_io.cc test/test_zobrist.cc)
 
 target_include_directories(boardlib
 	PUBLIC
@@ -21,8 +21,8 @@ target_include_directories(run_tests
 		${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-add_dependencies(run_tests boardlib)
-add_dependencies(chessai2 boardlib)
+target_link_libraries(run_tests boardlib)
+target_link_libraries(chessai2 boardlib)
 
 target_compile_features(chessai2 PRIVATE cxx_std_17)
 target_compile_features(boardlib PRIVATE cxx_std_17)

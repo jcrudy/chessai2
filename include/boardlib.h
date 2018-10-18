@@ -8,6 +8,7 @@
 #ifndef SRC_BOARDLIB_H_
 #define SRC_BOARDLIB_H_
 
+// Include for uint64_t and uint8_t types
 #include <boost/multiprecision/cpp_int.hpp>
 
 namespace boardlib {
@@ -40,6 +41,11 @@ public:
 	BitBoard& operator=(const BitBoard& rhs) = default;
 
 	/*
+	 * Equality comparison works for BitBoards.
+	 */
+	bool operator==(const BitBoard rhs) const;
+
+	/*
 	 * Construct a BitBoard containing exactly one square, specified
 	 * by the SquareIndex square.  This will be implemented as a lookup
 	 * for performance.
@@ -49,104 +55,69 @@ public:
 	/*
 	 * BitBoards should have all the normal bitwise operations
 	 */
-	BitBoard operator&(const BitBoard rhs) const{
-		return BitBoard(value_ & rhs.value_);
-	}
-	BitBoard operator|(const BitBoard rhs) const{
-		return BitBoard(value_ | rhs.value_);
-	}
-	BitBoard operator^(const BitBoard rhs) const{
-		return BitBoard(value_ ^ rhs.value_);
-	}
-	void operator&=(const BitBoard rhs){
-		value_ = value_ & rhs.value_;
-	}
-	void operator|=(const BitBoard rhs){
-		value_ = value_ | rhs.value_;
-	}
-	void operator^=(const BitBoard rhs){
-		value_ = value_ ^ rhs.value_;
-	}
-	BitBoard operator~() const{
-		return BitBoard(~value_);
-	}
-	BitBoard operator-() const{
-		return BitBoard(-value_);
-	}
+	BitBoard operator&(const BitBoard rhs) const;
+	BitBoard operator|(const BitBoard rhs) const;
+	BitBoard operator^(const BitBoard rhs) const;
+	void operator&=(const BitBoard rhs);
+	void operator|=(const BitBoard rhs);
+	void operator^=(const BitBoard rhs);
+	BitBoard operator~() const;
+	BitBoard operator-() const;
 
 	/*
 	 * Get the SquareIndex of the most significant 1-bit of this
 	 * BitBoard.  The most significant 1-bit is the 1-bit with
 	 * the greatest corresponding SquareIndex.
 	 */
-	SquareIndex greatest_square_index() const{
-		decltype(value_) temp_value = value_;
-		SquareIndex result = 0;
-		while(temp_value >>= 1){
-			result++;
-		}
-		return(result);
-	}
+	SquareIndex greatest_square_index() const;
 
 	/*
 	 * Get the BitBoard of just the least significant 1-bit of this
 	 * BitBoard.  The least significant 1-bit is the 1-bit with the
 	 * lowest corresponding SquareIndex.
 	 */
-	BitBoard least_significant_1_bit() const{
-		return BitBoard(value_ & (-value_));
-	}
+	BitBoard least_significant_1_bit() const;
 
 	/*
 	 * Get the least significant 1-bit, then set that bit to 0.
 	 */
-	BitBoard pop_least_significant_1_bit(){
-		decltype(value_) temp_value = value_ & (-value_);
-		value_ ^= temp_value;
-		return BitBoard(temp_value);
-	}
+	BitBoard pop_least_significant_1_bit();
 
 	/*
 	 * Get the number of set bits of this BitBoard, which is the number
 	 * of pieces it represents.
 	 */
-	SquareIndex population_count() const{
-		// TODO: Potentially not portable.
-		return (SquareIndex) __builtin_popcountll(value_);
-	}
-
+	SquareIndex population_count() const;
 
 };
 
+/*
+ * Given the rank and file indices, calculate the square index.
+ */
+SquareIndex square_index_of(SquareIndex rank_index, SquareIndex file_index);
 
-inline SquareIndex square_index_of(SquareIndex rank_index, SquareIndex file_index){
-	return (kFilesPerBoard * rank_index) + file_index;
-}
+/*
+ * Calculate the rank index (0 through 7) from the square index.
+ */
+SquareIndex rank_index_of(SquareIndex square);
 
-inline SquareIndex rank_index_of(SquareIndex square){
-	return (square / kFilesPerBoard);
-}
+/*
+ * Calculate the file index (0 through 7) from the square index.
+ */
+SquareIndex file_index_of(SquareIndex square);
 
-inline SquareIndex file_index_of(SquareIndex square){
-	return square % kFilesPerBoard;
-}
+/*
+ * Convert from our internal square index coordinate system to
+ * algebraic chess notation.
+ */
+std::string square_index_to_algebraic(SquareIndex square);
 
-inline std::string square_index_to_algebraic(SquareIndex square){
-	char algebraic_file = 'a' + file_index_of(square);
-	std::string result;
-	result += algebraic_file;
-	result += std::to_string(((int) rank_index_of(square) + 1));
-	return result;
-//	return "" + algebraic_file + std::to_string(((int) rank_index_of(square) + 1));
-}
+/*
+ * Convert from algebraic chess notation to
+ * our internal square index coordinate system.
+ */
+SquareIndex algebraic_to_square_index(std::string algebraic);
 
-inline SquareIndex algebraic_to_square_index(std::string algebraic){
-	SquareIndex file_index = (SquareIndex) algebraic[0] - 'a';
-	SquareIndex rank_index = (SquareIndex) std::stoi(algebraic.substr(1)) - 1;
-	return square_index_of(rank_index, file_index);
-}
-
-//typedef unsigned char SquareIndex;
 enum class Piece : unsigned char {
 	NO_PIECE,
 	WHITE_KING,
@@ -170,42 +141,7 @@ enum class Piece : unsigned char {
  * whites capitalized and blacks lower case.  For *_EN_PASSANT pieces, return '*'.
  * For NO_PIECE, return '-'.
  */
-inline char piece_to_fen(const Piece piece){
-	switch(piece){
-	case Piece::WHITE_KING:
-		return 'K';
-	case Piece::BLACK_KING:
-		return 'k';
-	case Piece::WHITE_QUEEN:
-		return 'Q';
-	case Piece::BLACK_QUEEN:
-		return 'q';
-	case Piece::WHITE_BISHOP:
-		return 'B';
-	case Piece::BLACK_BISHOP:
-		return 'b';
-	case Piece::WHITE_KNIGHT:
-		return 'N';
-	case Piece::BLACK_KNIGHT:
-		return 'n';
-	case Piece::WHITE_ROOK:
-		return 'R';
-	case Piece::BLACK_ROOK:
-		return 'r';
-	case Piece::WHITE_PAWN:
-		return 'P';
-	case Piece::BLACK_PAWN:
-		return 'p';
-	case Piece::WHITE_EN_PASSANT:
-		return '*';
-	case Piece::BLACK_EN_PASSANT:
-		return '*';
-	case Piece::NO_PIECE:
-		return '-';
-	default:
-		throw "Invalid Piece passed to piece_to_fen.";
-	}
-}
+char piece_to_fen(const Piece piece);
 
 /*
  * Convert a char, representing a piece in FEN notation, to a Piece.  Since
@@ -213,39 +149,7 @@ inline char piece_to_fen(const Piece piece){
  * directly specifying the algebraic location of the en passant square in a
  * special section, this function does not handle en passant at all.
  */
-inline Piece fen_to_piece(const char piece_char){
-	switch(piece_char){
-	case 'K':
-		return Piece::WHITE_KING;
-	case 'k':
-		return Piece::BLACK_KING;
-	case 'Q':
-		return Piece::WHITE_QUEEN;
-	case 'q':
-		return Piece::BLACK_QUEEN;
-	case 'B':
-		return Piece::WHITE_BISHOP;
-	case 'b':
-		return Piece::BLACK_BISHOP;
-	case 'N':
-		return Piece::WHITE_KNIGHT;
-	case 'n':
-		return Piece::BLACK_KNIGHT;
-	case 'R':
-		return Piece::WHITE_ROOK;
-	case 'r':
-		return Piece::BLACK_ROOK;
-	case 'P':
-		return Piece::WHITE_PAWN;
-	case 'p':
-		return Piece::BLACK_PAWN;
-	case '-':
-		return Piece::NO_PIECE;
-	default:
-		throw "Invalid char passed to fen_to_piece.";
-	}
-
-}
+Piece fen_to_piece(const char piece_char);
 
 /*
  * Sometimes we want to use a Piece as an index into an array.
@@ -253,42 +157,7 @@ inline Piece fen_to_piece(const char piece_char){
  * the last index, so arrays that don't need it can simply have
  * size 14 instead of 15.
  */
-inline int piece_index_of(Piece piece){
-	switch(piece){
-		case Piece::WHITE_KING:
-			return 0;
-		case Piece::BLACK_KING:
-			return 1;
-		case Piece::WHITE_QUEEN:
-			return 2;
-		case Piece::BLACK_QUEEN:
-			return 3;
-		case Piece::WHITE_BISHOP:
-			return 4;
-		case Piece::BLACK_BISHOP:
-			return 5;
-		case Piece::WHITE_KNIGHT:
-			return 6;
-		case Piece::BLACK_KNIGHT:
-			return 7;
-		case Piece::WHITE_ROOK:
-			return 8;
-		case Piece::BLACK_ROOK:
-			return 9;
-		case Piece::WHITE_PAWN:
-			return 10;
-		case Piece::BLACK_PAWN:
-			return 11;
-		case Piece::WHITE_EN_PASSANT:
-			return 12;
-		case Piece::BLACK_EN_PASSANT:
-			return 13;
-		case Piece::NO_PIECE:
-			return 14;
-		default:
-			return -1;
-	};
-}
+int piece_index_of(Piece piece);
 
 enum class PieceKind : unsigned char {
 	NO_PIECE,
@@ -301,46 +170,11 @@ enum class PieceKind : unsigned char {
 	EN_PASSANT
 };
 
-inline PieceKind kind_of(const Piece piece){
-	switch(piece){
-	case Piece::NO_PIECE:
-		return PieceKind::NO_PIECE;
-	case Piece::WHITE_KING:
-		return PieceKind::KING;
-	case Piece::BLACK_KING:
-		return PieceKind::KING;
-	case Piece::WHITE_QUEEN:
-		return PieceKind::QUEEN;
-	case Piece::BLACK_QUEEN:
-		return PieceKind::QUEEN;
-	case Piece::WHITE_BISHOP:
-		return PieceKind::BISHOP;
-	case Piece::BLACK_BISHOP:
-		return PieceKind::BISHOP;
-	case Piece::WHITE_KNIGHT:
-		return PieceKind::KNIGHT;
-	case Piece::BLACK_KNIGHT:
-		return PieceKind::KNIGHT;
-	case Piece::WHITE_ROOK:
-		return PieceKind::ROOK;
-	case Piece::BLACK_ROOK:
-		return PieceKind::ROOK;
-	case Piece::WHITE_PAWN:
-		return PieceKind::PAWN;
-	case Piece::BLACK_PAWN:
-		return PieceKind::PAWN;
-	case Piece::WHITE_EN_PASSANT:
-		return PieceKind::EN_PASSANT;
-	case Piece::BLACK_EN_PASSANT:
-		return PieceKind::EN_PASSANT;
-	default:
-		/*
-		 * This default case will never be reached, since all possibilities
-		 * are enumerated above, but CDT was complaining.
-		 */
-		return PieceKind::NO_PIECE;
-	}
-}
+/*
+ * Return the kind of piece that piece is.  Peice kind is just a piece
+ * with color information removed.
+ */
+PieceKind kind_of(const Piece piece);
 
 enum class Color : unsigned char {
 	NO_COLOR,
@@ -348,53 +182,13 @@ enum class Color : unsigned char {
 	BLACK
 };
 
-inline Color color_of(const Piece piece){
-	switch(piece){
-	case Piece::NO_PIECE:
-		return Color::NO_COLOR;
-	case Piece::WHITE_KING:
-		return Color::WHITE;
-	case Piece::BLACK_KING:
-		return Color::BLACK;
-	case Piece::WHITE_QUEEN:
-		return Color::WHITE;
-	case Piece::BLACK_QUEEN:
-		return Color::BLACK;
-	case Piece::WHITE_BISHOP:
-		return Color::WHITE;
-	case Piece::BLACK_BISHOP:
-		return Color::BLACK;
-	case Piece::WHITE_KNIGHT:
-		return Color::WHITE;
-	case Piece::BLACK_KNIGHT:
-		return Color::BLACK;
-	case Piece::WHITE_ROOK:
-		return Color::WHITE;
-	case Piece::BLACK_ROOK:
-		return Color::BLACK;
-	case Piece::WHITE_PAWN:
-		return Color::WHITE;
-	case Piece::BLACK_PAWN:
-		return Color::BLACK;
-	case Piece::WHITE_EN_PASSANT:
-		return Color::WHITE;
-	case Piece::BLACK_EN_PASSANT:
-		return Color::BLACK;
-	default:
-		/*
-		 * This default case will never be reached, since all possibilities
-		 * are enumerated above, but CDT was complaining.
-		 */
-		return Color::NO_COLOR;
-	}
-}
+/*
+ * Return the color of the given piece.
+ */
+Color color_of(const Piece piece);
 
-//extern const BitBoard kEmpty;
-//extern const BitBoard kFull;
-//extern const BitBoard kSquares[64];
-
-constexpr BitBoard kEmpty = 0x0000000000000000ULL;
-constexpr BitBoard kFull = 0xFFFFFFFFFFFFFFFFULL;
+constexpr BitBoard kEmpty = BitBoard(0x0000000000000000ULL);
+constexpr BitBoard kFull = BitBoard(0xFFFFFFFFFFFFFFFFULL);
 constexpr BitBoard kSquare0 = BitBoard(0x1ULL << 0);
 constexpr BitBoard kSquare1 = BitBoard(0x1ULL << 1);
 constexpr BitBoard kSquare2 = BitBoard(0x1ULL << 2);
@@ -472,18 +266,14 @@ constexpr BitBoard kSquares[64] = {kSquare0, kSquare1, kSquare2, kSquare3, kSqua
 
 
 /*
- * Defined here so that kSquares is available.  Not sure if this is
- * the best way to do it.
- */
-BitBoard BitBoard::from_square_index(SquareIndex square){
-	return kSquares[square];
-}
-
-/*
- * Contains the minimum information needed to define the state of the board.
+ * Represent the minimum information needed to define the state of the board.
  */
 class BoardStateCore{
 private:
+	// The BoardState, of which BoardStateCore forms the core,
+	// should have access to private members.
+	friend class BoardState;
+
 	/*
 	 * BitBoards to store piece sets.  Each of the 64 bits represents a square.  The square contains a piece of
 	 * the specified type iff the corresponding bit is 1.
@@ -527,42 +317,14 @@ private:
 	 * if it receives NO_PIECE or other invalid input.  This function can be called
 	 * as an lvalue.
 	 */
-	BitBoard& get_piece_kind_bit_board(const PieceKind kind){
-		switch(kind){
-		case PieceKind::KING:
-			return kings_;
-		case PieceKind::QUEEN:
-			return queens_;
-		case PieceKind::BISHOP:
-			return bishops_;
-		case PieceKind::KNIGHT:
-			return knights_;
-		case PieceKind::ROOK:
-			return rooks_;
-		case PieceKind::PAWN:
-			return pawns_;
-		case PieceKind::EN_PASSANT:
-			return en_passant_;
-		default:
-			throw "Invalid PieceKind passed to get_piece_kind_bit_board.";
-		}
-	}
+	BitBoard& get_piece_kind_bit_board(const PieceKind kind);
 
 	/*
 	 * Get a reference the BitBoard for a given color of piece.  Throws an exception
 	 * if it receives NO_COLOR or other invalid input.  This function can be called
 	 * as an lvalue.
 	 */
-	BitBoard& get_color_bit_board(const Color color){
-		switch(color){
-		case Color::WHITE:
-			return white_;
-		case Color::BLACK:
-			return black_;
-		default:
-			throw "Invalid Color passed to get_color_bit_board.";
-		}
-	}
+	BitBoard& get_color_bit_board(const Color color);
 
 	/*
 	 * Place a piece at each square specified by places, with no
@@ -570,21 +332,14 @@ private:
 	 * the requested places are unoccupied and the placements are
 	 * otherwise legal.
 	 */
-	void raw_place_pieces(const Piece piece, const BitBoard places){
-		const Color color = color_of(piece);
-		const PieceKind kind = kind_of(piece);
-		get_color_bit_board(color) |= places;
-		get_piece_kind_bit_board(kind) |= places;
-	}
+	void raw_place_pieces(const Piece piece, const BitBoard places);
 
 	/*
 	 * Place a piece at the square specified by square, with no
 	 * safety checks of any kind.  Caller is responsible for ensuring that
 	 * the requested square is unoccupied and the placement is otherwise legal.
 	 */
-	void raw_place_piece(const Piece piece, const SquareIndex square){
-		raw_place_pieces(piece, BitBoard::from_square_index(square));
-	}
+	void raw_place_piece(const Piece piece, const SquareIndex square);
 
 	/*
 	 * Unplace a piece at each square specified by places, with no
@@ -592,83 +347,27 @@ private:
 	 * the requested places are occupied and the removals are
 	 * otherwise legal.
 	 */
-	void raw_unplace_pieces(const Piece piece, const BitBoard places){
-		const BitBoard unplaces = ~places;
-		const Color color = color_of(piece);
-		const PieceKind kind = kind_of(piece);
-		get_color_bit_board(color) &= unplaces;
-		get_piece_kind_bit_board(kind) &= unplaces;
-	}
+	void raw_unplace_pieces(const Piece piece, const BitBoard places);
 
 	/*
 	 * Unplace a piece at the square specified by square, with no
 	 * safety checks of any kind.  Caller is responsible for ensuring that
 	 * the requested square is occupied and the removal is otherwise legal.
 	 */
-	void raw_unplace_piece(const Piece piece, const SquareIndex square){
-		raw_unplace_pieces(piece, BitBoard::from_square_index(square));
-	}
+	void raw_unplace_piece(const Piece piece, const SquareIndex square);
 
 public:
-	// The BoardState, of which BoardStateCore forms the core,
-	// should have access to private members.
-	friend class BoardState;
-
-
-	/*
-	 * Create BoardStateCore from components.
-	 */
-//	BoardStateCore(const BitBoard kings, const BitBoard queens, const BitBoard bishops, const BitBoard knights,
-//			const BitBoard rooks, const BitBoard pawns, const BitBoard white, const BitBoard black, const BitBoard en_passant,
-//			const bool whites_turn, const bool white_castle_king, const bool white_castle_queen, const bool black_castle_king,
-//			const bool black_castle_queen, const bool valid){
-//		kings_ = kings;
-//		queens_ = queens;
-//		bishops_ = bishops;
-//		knights_ = knights;
-//		rooks_ = rooks;
-//		pawns_ = pawns;
-//		white_ = white;
-//		black_ = black;
-//		en_passant_ = en_passant;
-//		whites_turn_ = whites_turn;
-//		white_castle_king_ = white_castle_king;
-//		white_castle_queen_ = white_castle_queen;
-//		black_castle_king_ = black_castle_king;
-//		black_castle_queen_ = black_castle_queen;
-//		valid_ = valid;
-//	}
-
 	/*
 	 * Create an empty board.
 	 */
-	BoardStateCore(){
-		kings_ = kEmpty;
-		queens_ = kEmpty;
-		bishops_ = kEmpty;
-		knights_ = kEmpty;
-		rooks_ = kEmpty;
-		pawns_ = kEmpty;
-		white_ = kEmpty;
-		black_ = kEmpty;
-		en_passant_ = kNoEnPassant;
-		whites_turn_ = false;
-		white_castle_king_ = false;
-		white_castle_queen_ = false;
-		black_castle_king_ = false;
-		black_castle_queen_ = false;
-		valid_ = false;
-	}
+	BoardStateCore();
 
 	/*
 	 * BoardStateCore can be copied.
 	 */
 	BoardStateCore(const BoardStateCore& rhs) = default;
 	BoardStateCore& operator=(const BoardStateCore& rhs) = default;
-
-
-
-
+	bool operator==(const BoardStateCore& rhs) const;
 };
 
 /*
@@ -686,38 +385,74 @@ public:
 	RecordEntry(const RecordEntry& rhs) = default;
 	RecordEntry& operator=(const RecordEntry& rhs) = default;
 
-	RecordEntry(const ZobristKey hash, const BoardStateCore state){
-		hash_ = hash;
-		state_ = state;
-	}
+	/*
+	 * Construct a RecordEntry from a BoardStateCore and its pre-computed
+	 * hash value.
+	 */
+	RecordEntry(const ZobristKey hash, const BoardStateCore state);
+
+	/*
+	 * Equality comparison works for RecordEntries.  It's also fast
+	 * because it checks the hash value first.
+	 */
+	bool operator==(const RecordEntry& rhs) const;
 };
 
 struct Move{
-//private:
 	SquareIndex from_square;
 	SquareIndex to_square;
 	Piece promotion;
-//public:
-//	/*
-//	 * Move can be copied.
-//	 */
-//	Move(const Move& rhs) = default;
-//	Move& operator=(const Move& rhs) = default;
-//
-//	Move(const SquareIndex from, const SquareIndex to, const Piece promotion){
-//		from_square_ = from;
-//		to_square_ = to;
-//		promotion_ = promotion;
-//	}
+
+	/*
+	 * Default construction of a Move always sets members to zero and NO_PIECE.
+	 */
+	constexpr Move() : from_square(0), to_square(0), promotion(Piece::NO_PIECE){}
+
+	/*
+	 * Construct a Move.
+	 */
+	constexpr Move(SquareIndex from_square, SquareIndex to_square, Piece promotion) :
+			from_square(from_square), to_square(to_square), promotion(promotion){}
+
+	/*
+	 * Construct a Move, assuming no promotion.
+	 */
+	constexpr Move(SquareIndex from_square, SquareIndex to_square) : Move(from_square, to_square, Piece::NO_PIECE){}
+
+	/*
+	 * Moves can be tested for equality.
+	 */
+	bool operator==(const Move& rhs) const;
 };
 
-constexpr Move kNoMove = {0, 0, Piece::NO_PIECE};
+constexpr Move kNoMove = Move();
 
 /*
  * A MoveRecord contains all the information needed to undo a move and to
  * compute the change in Zobrist hash value for a move.
  */
 struct MoveRecord{
+	/*
+	 * All members are zero (or the equivalent for their type) by default.
+	 */
+	constexpr MoveRecord() : from_square(0), to_square(0), captured_square(0),
+			castled_from_square(0), castled_to_square(0), moved_piece(Piece::NO_PIECE),
+			placed_piece(Piece::NO_PIECE), captured_piece(Piece::NO_PIECE),
+			castled_piece(Piece::NO_PIECE),
+			lost_white_castle_king(false), lost_white_castle_queen(false),
+			lost_black_castle_king(false), lost_black_castle_queen(false),
+			en_passant_square_before(0), en_passant_square_after(0),
+			en_passant_piece_before(Piece::NO_PIECE),
+			en_passant_piece_after(Piece::NO_PIECE), halfmove_clock_before(0),
+			threefold_repetition_clock_before(0), halfmove_clock_after(0),
+			threefold_repetition_clock_after(0) {}
+
+	/*
+	 * MoveRecords can be tested for equality.  This is mostly useful for
+	 * unit tests.
+	 */
+	bool operator==(const MoveRecord& rhs) const;
+
 	// The square the primary moving piece started in.  If the move was a castle,
 	// this will be the king.
 	SquareIndex from_square;
@@ -782,34 +517,18 @@ struct MoveRecord{
 	unsigned int threefold_repetition_clock_after;
 };
 
-
+/*
+ * Split a string on a delimiter and put the resulting tokens
+ * in output.
+ */
 void split_string(const std::string& string_to_split,
-		const std::string& delimiter, std::vector<std::string>& output){
-	std::string::size_type start_position = 0;
-	std::string::size_type end_position;
-	std::string::size_type delimiter_size = delimiter.size();
-	std::string::size_type token_size;
-	std::string::size_type string_to_split_size = string_to_split.size();
-	while(start_position < string_to_split_size){
-		end_position = string_to_split.find(delimiter, start_position);
-		if(end_position == std::string::npos){
-			end_position = string_to_split_size;
-		}
-		token_size = end_position - start_position;
-		if(token_size > 0){
-			output.push_back(string_to_split.substr(start_position, token_size));
-		}
-		start_position = end_position + delimiter_size;
-	}
-}
+		const std::string& delimiter, std::vector<std::string>& output);
 
+/*
+ * Split a string on a delimiter and return the resulting tokens as a vector.
+ */
 std::vector<std::string> split_string(const std::string& string_to_split,
-		const std::string& delimiter){
-	std::vector<std::string> result = std::vector<std::string>();
-	split_string(string_to_split, delimiter, result);
-	return result;
-}
-
+		const std::string& delimiter);
 
 
 /*
@@ -825,49 +544,49 @@ private:
 	std::array<Piece, kSquaresPerBoard> piece_map_;
 	ZobristKey hash_;
 	std::vector<RecordEntry> record_;
-	std::array<SquareIndex, kSquaresPerBoard> available_moves_;
 	SquareIndex en_passant_square_;
+
+	/*
+	 * These tables index available moves.  Each one represents a
+	 * 64 x 64 boolean table, with a 1 at position [i,j] of the
+	 * move_targets_ (move_origins_) table if and only if there
+	 * exists a move from (to) square i to (from) square j.
+	 * By updating these tables with every new move, we can avoid
+	 * re-generating all moves at every turn, instead simply
+	 * reading them off the table.  The idea is that keeping these
+	 * tables up-to-date can be done in an efficient way.
+	 */
+	std::array<BitBoard, kSquaresPerBoard> move_targets_;
+	std::array<BitBoard, kSquaresPerBoard> move_origins_;
 
 	/*
 	 * Break the rank_string into tokens.  It is assumed that rank_string
 	 * represents a single rank from a FEN string.  The tokens will be either
 	 * letters representing pieces or numbers representing empty squares.
 	 */
-	inline static std::vector<std::string> tokenize_fen_rank(std::string rank_string){
-		std::vector<std::string> result;
-		std::string piece_token;
-		std::string number_token;
-		for(char character : rank_string){
-			if(!isdigit(character)){
-				piece_token += character;
-				if(number_token.size() > 0){
-					result.push_back(number_token);
-					number_token = "";
-				}
-				result.push_back(piece_token);
-				piece_token = "";
-			}else{
-				number_token += character;
-			}
-		}
-		if(number_token.size() > 0){
-			result.push_back(number_token);
-		}
-		return result;
- 	}
+	static std::vector<std::string> tokenize_fen_rank(std::string rank_string);
 
 	/*
 	 * Place a piece at square, with no safety checks of any kind.
 	 * It is up to the caller to ensure that the desired square is
 	 * empty and that the placement is otherwise legal.  The
-	 * available_moves_, en_passant_square_, and hash_ will not be updated.
+	 * move tables, en_passant_square_, and hash_ will not be updated.
 	 * The caller must update them after the call to ensure a
 	 * consistent BoardState.
 	 */
-	inline void raw_place_piece(Piece piece, SquareIndex square){
-		core_.raw_place_piece(piece, square);
-		piece_map_[square] = piece;
-	}
+	void raw_place_piece(const Piece piece, const SquareIndex square);
+
+	/*
+	 * Remove a piece at a square, with no safety checks of any kind.
+	 * It is up to the caller to ensure that the desired square contains a
+	 * piece and that removal is otherwise legal. The
+	 * move tables, en_passant_square_, and hash_ will not be updated.
+	 * The caller must update them after the call to ensure a
+	 * consistent BoardState.  Two signatures exists, depending on whether
+	 * the Piece is known to the caller already.
+	 */
+	void raw_unplace_piece(const SquareIndex square);
+	void raw_unplace_piece(const Piece piece, const SquareIndex square);
 
 	/*
 	 * Set the en passant square, with no safety checks of any kind.  It's
@@ -876,16 +595,24 @@ private:
 	 * caller must update them after the call to ensure a consistent
 	 * BoardState.
 	 */
-	inline void raw_set_en_passant(bool whites_turn, SquareIndex square){
-		Piece piece;
-		if(whites_turn){
-			piece = Piece::WHITE_EN_PASSANT;
-		}else{
-			piece = Piece::BLACK_EN_PASSANT;
-		}
-		raw_place_piece(piece, square);
-		en_passant_square_ = square;
-	}
+	void raw_set_en_passant(bool whites_turn, SquareIndex square);
+
+	/*
+	 * Remove the en passant square. The available_moves_ and hash_ will
+	 * not be updated.  The caller must update them after the call to ensure
+	 * a consistent BoardState.
+	 */
+	void raw_unset_en_passant();
+
+	/*
+	 * Change the en passant square.  Valid even if no en passant square
+	 * currently exists. The available_moves_ and hash_ will
+	 * not be updated.  The caller must update them after the call to ensure
+	 * a consistent BoardState.
+	 */
+	void raw_change_en_passant(Piece en_passant_piece_before,
+			Piece en_passant_piece_after,
+			SquareIndex en_passant_square_after);
 
 public:
 	/*
@@ -900,205 +627,85 @@ public:
 	 * We do want to be able to move BoardStates, because we need to in order to
 	 * return one from a named constructor (from_fen).
 	 */
-	BoardState(BoardState&& rhs) = default;
+	BoardState(BoardState&& rhs);
 
-	BoardState(){
-//		core_ = BoardStateCore();
-		halfmove_clock_ = 0;
-		fullmove_counter_ = 0;
-		halfmove_counter_ = 0;
-		threefold_repetition_clock_ = 0;
-		// The piece_map_ is initialized empty, to match the default initialization
-		// of core_.
-		piece_map_ = {Piece::NO_PIECE};
-		hash_ = 0;
-//		record_ = std::vector<RecordEntry>();
-		// Avoid allocation during game by reserving a bunch of memory now
-		record_.reserve(10000);
-//		available_moves_ = std::array<SquareIndex, kSquaresPerBoard>() = {kEmpty};
-		en_passant_square_ = kNoEnPassant;
-	}
+	/*
+	 * Default constructor sets everything to zero except en_passant_square_,
+	 * which is set to kNoEnPassant.
+	 */
+	BoardState();
 
+	/*
+	 * Test equality of BoardStates.  This is mostly used for testing.
+	 */
+	bool operator==(const BoardState& rhs) const;
+
+	/*
+	 * Get the hash value for the current BoardState.
+	 */
+	ZobristKey get_hash() const;
 
 	/*
 	 * Get the piece located at square
 	 */
-	Piece get_piece_at(const SquareIndex square) const{
-		return piece_map_[square];
-	}
+	Piece get_piece_at(const SquareIndex square) const;
 
 	/*
 	 * Getters and setters
 	 */
-	inline bool get_whites_turn() const{
-		return core_.whites_turn_;
-	}
-	inline void set_whites_turn(const bool value){
-		core_.whites_turn_ = value;
-	}
-
-
-	inline bool get_white_castle_king() const{
-		return core_.white_castle_king_;
-	}
-	inline void set_white_castle_king(const bool value){
-		core_.white_castle_king_ = value;
-	}
-
-	inline bool get_white_castle_queen() const{
-		return core_.white_castle_queen_;
-	}
-	inline void set_white_castle_queen(const bool value){
-		core_.white_castle_queen_ = value;
-	}
-
-	inline bool get_black_castle_king() const{
-		return core_.black_castle_king_;
-	}
-	inline void set_black_castle_king(const bool value){
-		core_.black_castle_king_ = value;
-	}
-
-	inline bool get_black_castle_queen() const{
-		return core_.black_castle_queen_;
-	}
-	inline void set_black_castle_queen(const bool value){
-		core_.black_castle_queen_ = value;
-	}
+	bool get_whites_turn() const;
+	void set_whites_turn(const bool value);
+	bool get_white_castle_king() const;
+	void set_white_castle_king(const bool value);
+	bool get_white_castle_queen() const;
+	void set_white_castle_queen(const bool value);
+	bool get_black_castle_king() const;
+	void set_black_castle_king(const bool value);
+	bool get_black_castle_queen() const;
+	void set_black_castle_queen(const bool value);
 
 	/*
-	 * Compute the available moves based on current state and
-	 * set available_moves_.
+	 * Compute the available moves based on current state and set
+	 * the corresponding members.
 	 */
-	inline void compute_available_moves(){
-		// TODO: This
-	}
-
+	void compute_move_tables();
 
 	/*
 	 * Update the available moves based on a move that was just
 	 * made.
 	 */
-	inline void update_available_moves(const MoveRecord& record){
-		// TODO: This
-	}
+	void update_move_tables(const MoveRecord& record);
 
 	/*
 	 * Get the square that the en passant square refers to.  That is,
 	 * get the square where the pawn captured by en passant is located,
 	 * given the SquareIndex of the en passant square.
 	 */
-	inline static SquareIndex get_en_passant_target(
-			const SquareIndex en_passant_square){
-		const SquareIndex en_passant_rank = rank_index_of(en_passant_square);
-		const SquareIndex target_rank = en_passant_rank==3?2:5;
-		const SquareIndex target_file = file_index_of(en_passant_square);
-		return square_index_of(target_rank, target_file);
-	}
+	static SquareIndex get_en_passant_target(
+			const SquareIndex en_passant_square);
+
 
 	/*
-	 * Make a move and update all members accordingly.  Legality is
-	 * assumed, not checked.
+	 * Update current this BoardState based on given MoveRecord.
 	 */
-	inline MoveRecord make_move(const Move& move){
-		const Piece moved_piece = get_piece_at(move.from_square);
-		const PieceKind moved_piece_kind = kind_of(moved_piece);
-		const Color moved_piece_color = color_of(moved_piece);
-		const Piece to_piece = get_piece_at(move.to_square);
-		const PieceKind to_piece_kind = kind_of(to_piece);
-		const Color to_piece_color = color_of(to_piece);
-		MoveRecord result;
-		result.from_square = move.from_square;
-		result.to_square = move.to_square;
-		result.moved_piece = moved_piece;
-		SquareIndex from_file, to_file, delta_file, from_rank,
-			castled_from_file, to_rank, delta_rank, en_passant_rank_after;
+	void apply_move_record(const MoveRecord& record);
 
-		// Check for special move types.
-		if(to_piece_kind == PieceKind::EN_PASSANT
-				&& moved_piece_kind == PieceKind::PAWN){
-			// Assuming the current position was achieved legally,
-			// the above conditions guarantee that this move is an
-			// en passant capture.  Proceed accordingly.
-			result.captured_square = get_en_passant_target(move.to_square);
-			result.captured_piece = get_piece_at(result.captured_square);
-			result.placed_piece = result.moved_piece;
+	/*
+	 * Create the MoveRecord corresponding to the given move and
+	 * this BoardState.  Legality is assumed, not checked.
+	 */
+	MoveRecord compute_move_record(const Move& move);
 
-		}else if(moved_piece_kind == PieceKind::KING){
-			from_file = file_index_of(result.from_square);
-			to_file = file_index_of(result.to_square);
-			delta_file = (from_file > to_file)?(from_file - to_file):(to_file - from_file);
-			if(delta_file == 2){
-				// Assuming this is a legal move, the above conditions
-				// guarantee that this move is a castle.  Proceed accordingly.
-				from_rank = rank_index_of(result.from_square);
-				if(from_file < 4){
-					result.castled_from_square = square_index_of(from_rank, 0);
-				}else{
-					result.castled_from_square = square_index_of(from_rank, 7);
-				}
-				result.castled_piece = get_piece_at(result.castled_from_square);
+	/*
+	 * Make the given Move and return the corresponding MoveRecord.
+	 */
+	MoveRecord make_move(const Move move);
 
-				castled_from_file = file_index_of(result.castled_from_square);
-				if(castled_from_file < 4){
-					result.castled_to_square = square_index_of(from_rank, 3);
-				}else{
-					result.castled_to_square = square_index_of(from_rank, 5);
-				}
-
-
-			}
-		}else if(to_piece != Piece::NO_PIECE){
-			// Since en passant has already been ruled out, and since we are
-			// assuming the move is legal, this is a regular capture.
-			result.captured_square = result.to_square;
-			result.captured_piece = to_piece;
-		} // End check for special move types
-
-		// Check for promotion.
-		if(move.promotion != Piece::NO_PIECE){
-			result.placed_piece = move.promotion;
-		}else{
-			result.placed_piece = result.moved_piece;
-		}
-
-		// Check whether a pawn advanced 2 squares, creating a new potential
-		// en passant opportunity.
-		if(moved_piece_kind == PieceKind::PAWN){
-			from_rank = rank_index_of(result.from_square);
-			from_file = file_index_of(result.from_square);
-			to_rank = rank_index_of(result.to_square);
-			delta_rank = (moved_piece_color == Color::BLACK)?(from_rank - to_rank):(to_rank - from_rank);
-			if(delta_rank == 2){
-				// Assuming this is a legal move, it has created a potential en passant
-				// opportunity.  Our board representation does not require there to be a
-				// pawn present capable of capturing the en passant square, so there was no
-				// need to check for that.
-				en_passant_rank_after = (moved_piece_color == Color::BLACK)?(to_rank + 1):(from_rank + 1);
-				result.en_passant_square_after = square_index_of(en_passant_rank_after, from_file);
-				result.en_passant_piece_after = (moved_piece_color == Color::BLACK)?(Piece::BLACK_PAWN):(Piece::WHITE_PAWN);
-			}
-		}
-
-		// Set the members for pre-existing en passant opportunity, if any.
-		result.en_passant_square_before = en_passant_square_;
-		if(result.en_passant_square_before != kNoEnPassant){
-			result.en_passant_piece_before = get_piece_at(result.en_passant_square_before);
-		} // Otherwise, result.en_passant_piece_before is already Piece::NO_PIECE.
-
-		// Determine changes to castle rights.
-
-		// Determine changes to threefold repetition and halfmove
-		// clocks.
-
-	}
 
 	/*
 	 * Un-make a recorded move and update all members accordingly.
 	 */
-	inline void unmake_move(MoveRecord& record){
-		// TODO: This
-	}
+	void unmake_move(const MoveRecord& record);
 
 	/*
 	 * Create a BoardState from a FEN formatted string. This function
@@ -1110,98 +717,7 @@ public:
 	 * Return a FEN formatted string based on the BoardState. This
 	 * function doesn't need to be fast.
 	 */
-	std::string to_fen() const{
-		std::string board_part;
-		Piece piece;
-		char piece_char;
-		int empty_count;
-		SquareIndex negative_rank, rank, file;
-
-		// Iterate over the piece_map_ by rank and file,
-		// constructing the corresponding part of the FEN
-		// string.
-		for(negative_rank=0; negative_rank<kRanksPerBoard; negative_rank++){
-			// Weird ordering here because the FEN format does not use the
-			// same ordering of ranks as our coordinate system.
-			rank = kRanksPerBoard - negative_rank - 1;
-			empty_count = 0;
-			for(file=0; file<kFilesPerBoard; file++){
-				SquareIndex square = square_index_of(rank, file);
-				piece = piece_map_[square];
-				piece_char = piece_to_fen(piece);
-				if(piece_char == '-' || piece_char == '*'){
-					empty_count++;
-				}else{
-					if(empty_count > 0){
-						board_part += std::to_string(empty_count);
-						empty_count = 0;
-					}
-					board_part += piece_char;
-				}
-			}
-			if(empty_count > 0){
-				board_part += std::to_string(empty_count);
-				empty_count = 0;
-			}
-			if(rank > 0){
-				board_part += '/';
-			}
-		}
-
-		// Construct the part that specifies whose turn it is.
-		std::string turn_part;
-		if(core_.whites_turn_){
-			turn_part += "w";
-		}else{
-			turn_part += "b";
-		}
-
-		// Construct the part that specifies castle rights.
-		std::string castle_rights_part;
-		if(core_.white_castle_king_){
-			castle_rights_part += 'K';
-		}
-		if(core_.white_castle_queen_){
-			castle_rights_part += 'Q';
-		}
-		if(core_.black_castle_king_){
-			castle_rights_part += 'k';
-		}
-		if(core_.black_castle_queen_){
-			castle_rights_part += 'q';
-		}
-
-		// Construct the part that specifies the available en
-		// passant.
-		std::string en_passant_part;
-		if(en_passant_square_ != kNoEnPassant){
-			en_passant_part += square_index_to_algebraic(en_passant_square_);
-		}else{
-			en_passant_part += '-';
-		}
-
-		// Construct the clock part.
-		std::string clock_part;
-		clock_part += std::to_string(halfmove_clock_);
-		clock_part += ' ';
-		clock_part += std::to_string(fullmove_counter_);
-
-		// Put it all together.
-		std::string result;
-		result += board_part;
-		result += ' ';
-		result += turn_part;
-		if(castle_rights_part != ""){
-			result += ' ';
-			result += castle_rights_part;
-		}
-		result += ' ';
-		result += en_passant_part;
-		result += ' ';
-		result += clock_part;
-
-		return result;
-	}
+	std::string to_fen() const;
 
 };
 
@@ -1674,42 +1190,14 @@ private:
 	 * Get the Zobrist number for a particular square and piece.  Used
 	 * only for computing Zobrist hash values.
 	 */
-	static ZobristKey get_table_entry(SquareIndex square, Piece piece){
-//		return kZobristWhiteCastleKing;
-		return zobrist_table_[kSquaresPerBoard * square + piece_index_of(piece)];
-	}
+	static ZobristKey get_table_entry(SquareIndex square, Piece piece);
 
 public:
 
 	/*
 	 * Compute the Zobrist hash value for the board state.
 	 */
-	static ZobristKey hash(const BoardState& state){
-		Piece piece;
-		ZobristKey result = 0;
-		for(SquareIndex i=0; i<kSquaresPerBoard; i++){
-			piece = state.get_piece_at(i);
-			if(piece != Piece::NO_PIECE){
-				result ^= get_table_entry(i, piece);
-			}
-		}
-		if(state.get_whites_turn()){
-			result ^= kZobristWhitesTurn;
-		}
-		if(state.get_white_castle_king()){
-			result ^= kZobristWhiteCastleKing;
-		}
-		if(state.get_white_castle_queen()){
-			result ^= kZobristWhiteCastleQueen;
-		}
-		if(state.get_black_castle_king()){
-			result ^= kZobristBlackCastleKing;
-		}
-		if(state.get_black_castle_queen()){
-			result ^= kZobristBlackCastleQueen;
-		}
-		return result;
-	}
+	static ZobristKey hash(const BoardState& state);
 
 	/*
 	 * Compute the updated Zobrist hash value if a board with
@@ -1718,154 +1206,13 @@ public:
 	 * move_record.  The operation of zobrist updating by a MoveRecord
 	 * is its own inverse.
 	 */
-	static ZobristKey update(const ZobristKey previous_key, const MoveRecord& record){
-		ZobristKey result = previous_key;
-
-		if(record.lost_black_castle_queen){
-			result ^= kZobristBlackCastleQueen;
-		}
-		if(record.lost_black_castle_king){
-			result ^= kZobristBlackCastleKing;
-		}
-		if(record.lost_white_castle_queen){
-			result ^= kZobristWhiteCastleQueen;
-		}
-		if(record.lost_white_castle_king){
-			result ^= kZobristWhiteCastleKing;
-		}
-
-		// The turn always flips, obviously.
-		result ^= kZobristWhitesTurn;
-
-		// Account for all changed pieces, including available
-		// en passant captures, which are treated as pieces.
-		result ^= get_table_entry(record.from_square, record.moved_piece);
-		if(record.captured_piece != Piece::NO_PIECE){
-			result ^= get_table_entry(record.captured_square, record.captured_piece);
-		}
-		result ^= get_table_entry(record.to_square, record.placed_piece);
-		if(record.castled_piece != Piece::NO_PIECE){
-			result ^= get_table_entry(record.castled_from_square, record.castled_piece);
-			result ^= get_table_entry(record.castled_to_square, record.castled_piece);
-		}
-		if(record.en_passant_piece_after != Piece::NO_PIECE){
-			result ^= get_table_entry(record.en_passant_square_after,
-					record.en_passant_piece_after);
-		}
-		if(record.en_passant_piece_before != Piece::NO_PIECE){
-			result ^= get_table_entry(record.en_passant_square_before,
-					record.en_passant_piece_before);
-		}
-
-		return result;
-	}
-
-
+	static ZobristKey update(const ZobristKey previous_key, const MoveRecord& record);
 };
 
 
-BoardState BoardState::from_fen(std::string fen){
-	// Start with a blank BoardState, which will be filled in
-	// later.
-	BoardState result;
 
-	// Break the FEN string into parts.
-	std::vector<std::string> parts = split_string(fen, " ");
-	if(parts.size() < 5 || parts.size() > 6){
-		throw "Improperly formated string passed to BoardState::from_fen.";
-	}
-	std::string board_part = parts[0];
-	std::string turn_part = parts[1];
-	std::string castle_rights_part;
-	if(parts.size() == 6){
-		castle_rights_part = parts[2];
-	}
-	std::string en_passant_part = parts[parts.size() == 6?3:2];
-	std::string halfmove_clock_part = parts[parts.size() == 6?4:3];
-	std::string fullmove_counter_part = parts[parts.size() == 6?5:4];
 
-	// Break the board part of the FEN string into ranks.
-	std::vector<std::string> rank_parts = split_string(board_part, "/");
-	if(rank_parts.size() != kRanksPerBoard){
-		throw "Improperly formated string passed to BoardState::from_fen.";
-	}
 
-	// Place all the pieces in each rank.
-	std::string rank_string;
-	std::vector<std::string> rank_tokens;
-	SquareIndex file_index;
-	for(SquareIndex rank_index=0; rank_index<kRanksPerBoard; rank_index++){
-		rank_string = rank_parts[kRanksPerBoard - rank_index - 1];
-		rank_tokens = tokenize_fen_rank(rank_string);
-		file_index = 0;
-		for(std::string token : rank_tokens){
-			if(isdigit(token[0])){
-				file_index += stoi(token);
-			}else{
-				if(token.size() != 1){
-					throw "Improperly formated string passed to BoardState::from_fen.";
-				}
-				result.raw_place_piece(fen_to_piece(token[0]),
-						square_index_of(rank_index, file_index));
-				file_index++;
-			}
-			if(file_index > kFilesPerBoard){
-				throw "Improperly formated string passed to BoardState::from_fen.";
-			}
-		}
-	}
-	// All pieces have now been placed with the possible exception of en passant.
-
-	// Set whose turn it is
-	if(turn_part.size() != 1){
-		throw "Improperly formated string passed to BoardState::from_fen.";
-	}
-	if(turn_part[0] == 'w'){
-		result.set_whites_turn(true);
-	}else{
-		result.set_whites_turn(false);
-	}
-
-	// Set castle rights
-	if(castle_rights_part.size() > 4){
-		throw "Improperly formated string passed to BoardState::from_fen.";
-	}
-	for(char castle_right : castle_rights_part){
-		switch(castle_right){
-		case 'K':
-			result.set_white_castle_king(true);
-			break;
-		case 'Q':
-			result.set_white_castle_queen(true);
-			break;
-		case 'k':
-			result.set_black_castle_king(true);
-			break;
-		case 'q':
-			result.set_black_castle_queen(true);
-			break;
-		default:
-			throw "Improperly formated string passed to BoardState::from_fen.";
-		}
-	}
-
-	// Set en passant
-	if(en_passant_part != "-"){
-		result.raw_set_en_passant(result.core_.whites_turn_, algebraic_to_square_index(en_passant_part));
-	}
-
-	// Set the clocks
-	result.halfmove_clock_ = stoi(halfmove_clock_part);
-	result.fullmove_counter_ = stoi(fullmove_counter_part);
-
-	// Calculate the current Zobrist hash
-	result.hash_ = ZobristHasher::hash(result);
-
-	// Calculate available moves
-	result.compute_available_moves();
-
-	return result;
-}
 
 
 } // namespace boardlib
