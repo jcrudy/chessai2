@@ -878,7 +878,7 @@ BoardState BoardState::from_fen(std::string fen){
 	}
 	// All pieces have now been placed with the possible exception of en passant.
 
-	// Set whose turn it is
+	// Set whose turn it is.
 	if(turn_part.size() != 1){
 		throw "Improperly formated string passed to BoardState::from_fen.";
 	}
@@ -888,7 +888,7 @@ BoardState BoardState::from_fen(std::string fen){
 		result.set_whites_turn(false);
 	}
 
-	// Set castle rights
+	// Set castle rights.
 	if(castle_rights_part.size() > 4){
 		throw "Improperly formated string passed to BoardState::from_fen.";
 	}
@@ -911,21 +911,21 @@ BoardState BoardState::from_fen(std::string fen){
 		}
 	}
 
-	// Set en passant
+	// Set en passant.
 	if(en_passant_part != "-"){
 		result.raw_set_en_passant(
 				result.core_.whites_turn_?Piece::WHITE_EN_PASSANT:Piece::BLACK_EN_PASSANT,
 				algebraic_to_square_index(en_passant_part));
 	}
 
-	// Set the clocks
+	// Set the clocks.
 	result.halfmove_clock_ = stoi(halfmove_clock_part);
 	result.fullmove_counter_ = stoi(fullmove_counter_part);
 
-	// Calculate the current Zobrist hash
+	// Calculate the current Zobrist hash.
 	result.hash_ = ZobristHasher::hash(result);
 
-	// Calculate available moves
+	// Calculate available moves.
 	result.compute_move_tables();
 
 	return result;
