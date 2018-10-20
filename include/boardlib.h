@@ -43,7 +43,9 @@ public:
 	/*
 	 * Equality comparison works for BitBoards.
 	 */
-	bool operator==(const BitBoard rhs) const;
+	constexpr bool operator==(const BitBoard rhs) const{
+		return value_==rhs.value_;
+	}
 
 	/*
 	 * Construct a BitBoard containing exactly one square, specified
@@ -55,14 +57,40 @@ public:
 	/*
 	 * BitBoards should have all the normal bitwise operations
 	 */
-	BitBoard operator&(const BitBoard rhs) const;
-	BitBoard operator|(const BitBoard rhs) const;
-	BitBoard operator^(const BitBoard rhs) const;
-	void operator&=(const BitBoard rhs);
-	void operator|=(const BitBoard rhs);
-	void operator^=(const BitBoard rhs);
-	BitBoard operator~() const;
-	BitBoard operator-() const;
+	constexpr BitBoard operator&(const BitBoard rhs) const{
+		return BitBoard(value_ & rhs.value_);
+	}
+	constexpr BitBoard operator|(const BitBoard rhs) const{
+		return BitBoard(value_ | rhs.value_);
+	}
+	constexpr BitBoard operator^(const BitBoard rhs) const{
+		return BitBoard(value_ ^ rhs.value_);
+	}
+	constexpr BitBoard& operator&=(const BitBoard rhs){
+		value_ = value_ & rhs.value_;
+		return *this;
+	}
+	constexpr BitBoard& operator|=(const BitBoard rhs){
+		value_ = value_ | rhs.value_;
+		return *this;
+	}
+	constexpr BitBoard& operator^=(const BitBoard rhs){
+		value_ = value_ ^ rhs.value_;
+		return *this;
+	}
+	constexpr BitBoard operator~() const{
+		return BitBoard(~value_);
+	}
+	constexpr BitBoard operator-() const{
+		return BitBoard(-value_);
+	}
+
+	constexpr BitBoard operator<<(const int n) const{
+		return BitBoard(value_ << n);
+	}
+	constexpr BitBoard operator>>(const int n) const{
+		return BitBoard(value_ >> n);
+	}
 
 	/*
 	 * Get the SquareIndex of the most significant 1-bit of this
@@ -89,7 +117,158 @@ public:
 	 */
 	SquareIndex population_count() const;
 
+//	/*
+//	 * Step all set squares one square east, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_east();
+//
+//	/*
+//	 * Step all occupied squares one square north, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_north();
+//
+//	/*
+//	 * Step all occupied squares one square west, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_west();
+//
+//	/*
+//	 * Step all occupied squares one square south, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_south();
+//
+//	/*
+//	 * Step all occupied squares one square northeast, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_northeast();
+//
+//	/*
+//	 * Step all occupied squares one square northwest, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_northwest();
+//
+//	/*
+//	 * Step all occupied squares one square southeast, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_southeast();
+//
+//	/*
+//	 * Step all occupied squares one square southwest, letting pieces drop off the board if
+//	 * hit the edge.
+//	 */
+//	void step_southwest();
+
+	/*
+	 * Return a new BitBoard that is the result of a call to step_east on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_east() const;
+
+	/*
+	 * Return a new BitBoard that is the result of a call to step_north on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_north() const;
+
+	/*
+	 * Return a new BitBoard that is the result of a call to step_west on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_west() const;
+
+	/*
+	 * Return a new BitBoard that is the result of a call to step_south on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_south() const;
+	/*
+	 * Return a new BitBoard that is the result of a call to step_northeast on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_northeast() const;
+
+	/*
+	 * Return a new BitBoard that is the result of a call to step_northwest on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_northwest() const;
+
+	/*
+	 * Return a new BitBoard that is the result of a call to step_southeast on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_southeast() const;
+
+	/*
+	 * Return a new BitBoard that is the result of a call to step_southwest on the current
+	 * one, without affecting the current one.
+	 */
+	constexpr BitBoard step_southwest() const;
+
+	/*
+	 * Slide the occupied squares east along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_east(BitBoard occupied, BitBoard unoccupied);
+
+	/*
+	 * Slide the occupied squares northeast along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_northeast(BitBoard occupied, BitBoard unoccupied);
+
+	/*
+	 * Slide the occupied squares north along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_north(BitBoard occupied, BitBoard unoccupied);
+
+
+	/*
+	 * Slide the occupied squares northwest along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_northwest(BitBoard occupied, BitBoard unoccupied);
+
+	/*
+	 * Slide the occupied squares west along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_west(BitBoard occupied, BitBoard unoccupied);
+
+	/*
+	 * Slide the occupied squares southwest along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_southwest(BitBoard occupied, BitBoard unoccupied);
+
+	/*
+	 * Slide the occupied squares south along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_south(const BitBoard occupied, const BitBoard unoccupied);
+
+	/*
+	 * Slide the occupied squares southeast along any unoccupied ones.
+	 */
+	constexpr static BitBoard slide_southeast(BitBoard occupied, BitBoard unoccupied);
+
+	/*
+	 * Return the set of squares that can be moved to by knights on this board.
+	 */
+	constexpr BitBoard knight_step() const{
+		return step_north().step_east().step_east() |
+				step_north().step_north().step_east() |
+				step_north().step_west().step_west() |
+				step_north().step_north().step_west() |
+				step_south().step_east().step_east() |
+				step_south().step_south().step_east() |
+				step_south().step_west().step_west() |
+				step_south().step_south().step_west();
+	}
+
 };
+
 
 /*
  * Given the rank and file indices, calculate the square index.
@@ -264,6 +443,243 @@ constexpr BitBoard kSquares[64] = {kSquare0, kSquare1, kSquare2, kSquare3, kSqua
 		kSquare54, kSquare55, kSquare56, kSquare57, kSquare58, kSquare59, kSquare60,
 		kSquare61, kSquare62, kSquare63};
 
+constexpr BitBoard kFileA = BitBoard(0x0101010101010101ULL);
+constexpr BitBoard kFileB = BitBoard(0x0202020202020202ULL);
+constexpr BitBoard kFileC = BitBoard(0x0404040404040404ULL);
+constexpr BitBoard kFileD = BitBoard(0x0808080808080808ULL);
+constexpr BitBoard kFileE = BitBoard(0x1010101010101010ULL);
+constexpr BitBoard kFileF = BitBoard(0x2020202020202020ULL);
+constexpr BitBoard kFileG = BitBoard(0x4040404040404040ULL);
+constexpr BitBoard kFileH = BitBoard(0x8080808080808080ULL);
+constexpr BitBoard kFiles[8] = {kFileA, kFileB, kFileC, kFileD, kFileE, kFileF, kFileG, kFileH};
+
+constexpr BitBoard kRank1 = BitBoard(0x00000000000000FFULL);
+constexpr BitBoard kRank2 = BitBoard(0x000000000000FF00ULL);
+constexpr BitBoard kRank3 = BitBoard(0x0000000000FF0000ULL);
+constexpr BitBoard kRank4 = BitBoard(0x00000000FF000000ULL);
+constexpr BitBoard kRank5 = BitBoard(0x000000FF00000000ULL);
+constexpr BitBoard kRank6 = BitBoard(0x0000FF0000000000ULL);
+constexpr BitBoard kRank7 = BitBoard(0x00FF000000000000ULL);
+constexpr BitBoard kRank8 = BitBoard(0xFF00000000000000ULL);
+constexpr BitBoard kRanks[8] = {kRank1, kRank2, kRank3, kRank4, kRank5, kRank6, kRank7, kRank8};
+
+/*
+ * Return a new BitBoard that is the result of a call to step_east on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_east() const{
+	return BitBoard((value_ & (~kFileH.value_)) << 1);
+}
+
+/*
+ * Return a new BitBoard that is the result of a call to step_north on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_north() const{
+	return BitBoard(value_ << 8);
+}
+
+/*
+ * Return a new BitBoard that is the result of a call to step_west on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_west() const{
+	return BitBoard((value_ & (~kFileA.value_)) >> 1);
+}
+
+/*
+ * Return a new BitBoard that is the result of a call to step_south on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_south() const{
+	return BitBoard(value_ >> 8);
+}
+
+/*
+ * Return a new BitBoard that is the result of a call to step_northeast on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_northeast() const{
+	return BitBoard((value_ & (~kFileH.value_)) << 9);
+}
+
+/*
+ * Return a new BitBoard that is the result of a call to step_northwest on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_northwest() const{
+	return BitBoard((value_ & (~kFileA.value_)) << 7);
+}
+
+/*
+ * Return a new BitBoard that is the result of a call to step_southeast on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_southeast() const{
+	return BitBoard((value_ & (~kFileH.value_)) >> 7);
+}
+
+/*
+ * Return a new BitBoard that is the result of a call to step_southwest on the current
+ * one, without affecting the current one.
+ */
+constexpr BitBoard BitBoard::step_southwest() const{
+	return BitBoard((value_ & (~kFileA.value_)) >> 9);
+}
+
+/*
+ * Slide the occupied squares east along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_east(BitBoard occupied, BitBoard unoccupied){
+	BitBoard result = occupied;
+	BitBoard tmp = unoccupied;
+	tmp &= (~kFileA);
+	result |= ((result << 1) & tmp);
+	tmp &= (tmp << 1);
+	result |= ((result << 2) & tmp);
+	tmp &= (tmp << 2);
+	result |= ((result << 4) & tmp);
+	return BitBoard(result);
+}
+
+/*
+ * Slide the occupied squares northeast along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_northeast(BitBoard occupied, BitBoard unoccupied){
+	BitBoard result = occupied;
+	BitBoard tmp = unoccupied;
+	tmp &= (~kFileA);
+	result |= ((result << 9) & tmp);
+	tmp &= (tmp << 9);
+	result |= ((result << 18) & tmp);
+	tmp &= (tmp << 18);
+	result |= ((result << 36) & tmp);
+	return result;
+}
+
+/*
+ * Slide the occupied squares north along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_north(BitBoard occupied, BitBoard unoccupied){
+	BitBoard result = occupied;
+	result |= ((result << 8) & unoccupied);
+	unoccupied &= (unoccupied << 8);
+	result |= ((result << 16) & unoccupied);
+	unoccupied &= (unoccupied << 16);
+	result |= ((result << 32) & unoccupied);
+	return result;
+}
+
+/*
+ * Slide the occupied squares northwest along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_northwest(BitBoard occupied, BitBoard unoccupied){
+	BitBoard result = occupied;
+	BitBoard tmp = unoccupied;
+	tmp &= (~kFileH);
+	result |= ((result << 7) & tmp);
+	tmp &= (tmp << 7);
+	result |= ((result << 14) & tmp);
+	tmp &= (tmp << 14);
+	result |= ((result << 28) & tmp);
+	return result;
+}
+
+/*
+ * Slide the occupied squares west along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_west(BitBoard occupied, BitBoard unoccupied){
+	BitBoard result = occupied;
+	BitBoard tmp = unoccupied;
+	tmp &= (~kFileH);
+	result |= ((result >> 1) & tmp);
+	tmp &= (tmp >> 1);
+	result |= ((result >> 2) & tmp);
+	tmp &= (tmp >> 2);
+	result |= ((result >> 4) & tmp);
+	return result;
+}
+
+/*
+ * Slide the occupied squares southwest along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_southwest(BitBoard occupied, BitBoard unoccupied){
+	BitBoard result = occupied;
+	BitBoard tmp = unoccupied;
+	tmp &= (~kFileH);
+	result |= ((result >> 9) & tmp);
+	tmp &= (tmp >> 9);
+	result |= ((result >> 18) & tmp);
+	tmp &= (tmp >> 18);
+	result |= ((result >> 36) & tmp);
+	return result;
+}
+
+/*
+ * Slide the occupied squares south along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_south(const BitBoard occupied, const BitBoard unoccupied){
+	BitBoard result = occupied;
+	BitBoard tmp = unoccupied;
+	result |= ((result >> 8) & tmp);
+	tmp &= (tmp >> 8);
+	result |= ((result >> 16) & tmp);
+	tmp &= (tmp >> 16);
+	result |= ((result >> 32) & tmp);
+	return result;
+}
+
+/*
+ * Slide the occupied squares southeast along any unoccupied ones.
+ */
+constexpr BitBoard BitBoard::slide_southeast(BitBoard occupied, BitBoard unoccupied){
+	BitBoard result = occupied;
+	BitBoard tmp = unoccupied;
+	tmp &= (~kFileA);
+	result |= ((result >> 7) & tmp);
+	tmp &= (tmp >> 7);
+	result |= ((result >> 14) & tmp);
+	tmp &= (tmp >> 14);
+	result |= ((result >> 28) & tmp);
+	return result;
+}
+
+constexpr BitBoard kDiag0 = BitBoard(0x8040201008040201ULL);
+constexpr BitBoard kDiag1 = kDiag0.step_west();
+constexpr BitBoard kDiag2 = kDiag1.step_west();
+constexpr BitBoard kDiag3 = kDiag2.step_west();
+constexpr BitBoard kDiag4 = kDiag3.step_west();
+constexpr BitBoard kDiag5 = kDiag4.step_west();
+constexpr BitBoard kDiag6 = kDiag5.step_west();
+constexpr BitBoard kDiag7 = kDiag6.step_west();
+constexpr BitBoard kDiag15 = kDiag0.step_east();
+constexpr BitBoard kDiag14 = kDiag15.step_east();
+constexpr BitBoard kDiag13 = kDiag14.step_east();
+constexpr BitBoard kDiag12 = kDiag13.step_east();
+constexpr BitBoard kDiag11 = kDiag12.step_east();
+constexpr BitBoard kDiag10 = kDiag11.step_east();
+constexpr BitBoard kDiag9 = kDiag10.step_east();
+constexpr BitBoard kDiags[16] = {kDiag0, kDiag1, kDiag2, kDiag3, kDiag4, kDiag5, kDiag6, kDiag7, 0,
+							kDiag9, kDiag10, kDiag11, kDiag12, kDiag13, kDiag14, kDiag15};
+
+constexpr BitBoard kAntiDiag0 = BitBoard(0x0102040810204080ULL);
+constexpr BitBoard kAntiDiag1 = kAntiDiag0.step_south();
+constexpr BitBoard kAntiDiag2 = kAntiDiag1.step_south();
+constexpr BitBoard kAntiDiag3 = kAntiDiag2.step_south();
+constexpr BitBoard kAntiDiag4 = kAntiDiag3.step_south();
+constexpr BitBoard kAntiDiag5 = kAntiDiag4.step_south();
+constexpr BitBoard kAntiDiag6 = kAntiDiag5.step_south();
+constexpr BitBoard kAntiDiag7 = kAntiDiag6.step_south();
+constexpr BitBoard kAntiDiag15 = kAntiDiag0.step_north();
+constexpr BitBoard kAntiDiag14 = kAntiDiag15.step_north();
+constexpr BitBoard kAntiDiag13 = kAntiDiag14.step_north();
+constexpr BitBoard kAntiDiag12 = kAntiDiag13.step_north();
+constexpr BitBoard kAntiDiag11 = kAntiDiag12.step_north();
+constexpr BitBoard kAntiDiag10 = kAntiDiag11.step_north();
+constexpr BitBoard kAntiDiag9 = kAntiDiag10.step_north();
+constexpr BitBoard kAntiDiags[16] = {kAntiDiag0, kAntiDiag1, kAntiDiag2, kAntiDiag3, kAntiDiag4, kAntiDiag5,
+								kAntiDiag6, kAntiDiag7, 0, kAntiDiag9, kAntiDiag10, kAntiDiag11,
+								kAntiDiag12, kAntiDiag13, kAntiDiag14, kAntiDiag15};
 
 /*
  * Represent the minimum information needed to define the state of the board.
@@ -536,14 +952,66 @@ std::vector<std::string> split_string(const std::string& string_to_split,
  */
 class BoardState{
 private:
+	/*
+	 * The core_ contains the non-redundant information needed to determine
+	 * the positions of all pieces and castle rights.  It does not contain information
+	 * about any forced draw clocks or past states.
+	 */
 	BoardStateCore core_;
+
+	/*
+	 * Redundant BitBoards useful for move generation.
+	 */
+	BitBoard occupied_;
+	BitBoard unoccupied_;
+	BitBoard own_;
+	BitBoard opponent_;
+	BitBoard own_king_;
+
+	/*
+	 * The halfmove_clock_ is the number of halfmoves relevant to the 50 move rule.
+	 */
 	unsigned int halfmove_clock_;
+
+	/*
+	 * The fullmove_counter_ is the number of full moves in the game so far.
+	 */
 	unsigned int fullmove_counter_;
+
+	/*
+	 * The halfmove_counter_ is the number of halfmoves in the game so far.
+	 */
 	unsigned int halfmove_counter_;
+
+	/*
+	 * The threefold_repetition_clock_ measures the number of halfmoves since the
+	 * last irreversible change in board state.  It differs from the halfmove_clock_
+	 * only because it gets reset when castle rights are lost. The halfmove_clock_
+	 * does not because castle rights are not relevant to the 50 move rule, but are
+	 * relevant to the threefold repetition rule.
+	 */
 	unsigned int threefold_repetition_clock_;
+
+	/*
+	 * Redundant map from SquareIndex to the Piece at that square.
+	 */
 	std::array<Piece, kSquaresPerBoard> piece_map_;
+
+	/*
+	 * The Zobrist hash value of the current position.
+	 */
 	ZobristKey hash_;
+
+	/*
+	 * A record of previous board states, used to detect repetition.  Only the
+	 * core and Zobrist hash value are stored.
+	 */
 	std::vector<RecordEntry> record_;
+
+	/*
+	 * Redundant storage of the current en passant square for fast reference when
+	 * updating en passant rights.
+	 */
 	SquareIndex en_passant_square_;
 
 	/*
@@ -670,6 +1138,11 @@ public:
 	void set_black_castle_queen(const bool value);
 
 	/*
+	 * Make the redundant bitboards consistent with the current core_.
+	 */
+	void update_redundant_bitboards();
+
+	/*
 	 * Compute the available moves based on current state and set
 	 * the corresponding members.
 	 */
@@ -729,6 +1202,35 @@ public:
 	 * function doesn't need to be fast.
 	 */
 	std::string to_fen() const;
+
+	/*
+	 * Assuming no piece is currently located at the given square, compute the
+	 * set of all squares at which a piece could be placed without the own king
+	 * being in check.  If the own king is not currently in check, this will be
+	 * the set of all squares.  If the own king is currently in check by multiple
+	 * pieces, this will be the empty set.  Otherwise, it is the set of squares
+	 * that will either block or capture the attacking piece.  This result will
+	 * be used to restrict the movement of the piece at the given square during
+	 * legal move generation to prevent the current player from moving into check.
+	 */
+	BitBoard compute_unchecked_squares(SquareIndex square){
+		const BitBoard square_in_question_ = BitBoard::from_square_index(square);
+
+
+	}
+
+	BitBoard pinning_ray_intersection(SquareIndex square){
+
+	}
+
+	/*
+	 * Compute squares to which a queen could move from the given square.  This
+	 * function assumes a queen is present on the given square, and will ignore
+	 * whatever is there.
+	 */
+	BitBoard compute_queen_moves(SquareIndex square){
+
+	}
 
 };
 

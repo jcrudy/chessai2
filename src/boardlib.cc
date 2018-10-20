@@ -9,34 +9,18 @@
 
 namespace boardlib{
 
-bool BitBoard::operator==(const BitBoard rhs) const{
-	return value_==rhs.value_;
-}
 
-BitBoard BitBoard::operator&(const BitBoard rhs) const{
-	return BitBoard(value_ & rhs.value_);
-}
-BitBoard BitBoard::operator|(const BitBoard rhs) const{
-	return BitBoard(value_ | rhs.value_);
-}
-BitBoard BitBoard::operator^(const BitBoard rhs) const{
-	return BitBoard(value_ ^ rhs.value_);
-}
-void BitBoard::operator&=(const BitBoard rhs){
-	value_ = value_ & rhs.value_;
-}
-void BitBoard::operator|=(const BitBoard rhs){
-	value_ = value_ | rhs.value_;
-}
-void BitBoard::operator^=(const BitBoard rhs){
-	value_ = value_ ^ rhs.value_;
-}
-BitBoard BitBoard::operator~() const{
-	return BitBoard(~value_);
-}
-BitBoard BitBoard::operator-() const{
-	return BitBoard(-value_);
-}
+
+
+//void BitBoard::operator&=(const BitBoard rhs){
+//	value_ = value_ & rhs.value_;
+//}
+//void BitBoard::operator|=(const BitBoard rhs){
+//	value_ = value_ | rhs.value_;
+//}
+//void BitBoard::operator^=(const BitBoard rhs){
+//	value_ = value_ ^ rhs.value_;
+//}
 
 SquareIndex BitBoard::greatest_square_index() const{
 	decltype(value_) temp_value = value_;
@@ -65,6 +49,38 @@ SquareIndex BitBoard::population_count() const{
 BitBoard BitBoard::from_square_index(SquareIndex square){
 	return kSquares[square];
 }
+
+//void BitBoard::step_east(){
+//	value_ = ((value_ & (~kFileH.value_)) << 1);
+//}
+//
+//void BitBoard::step_north(){
+//	value_ = value_ << 8;
+//}
+//
+//void BitBoard::step_west(){
+//	value_ = (value_ & (~kFileA.value_)) >> 1;
+//}
+//
+//void BitBoard::step_south(){
+//	value_ = value_ >> 8;
+//}
+//
+//void BitBoard::step_northeast(){
+//	value_ = (value_ & (~kFileH.value_)) << 9;
+//}
+//
+//void BitBoard::step_northwest(){
+//	value_ = (value_ & (~kFileA.value_)) << 7;
+//}
+//
+//void BitBoard::step_southeast(){
+//	value_ = (value_ & (~kFileH.value_)) >> 7;
+//}
+//
+//void BitBoard::step_southwest(){
+//	value_ = (value_ & (~kFileA.value_)) >> 9;
+//}
 
 SquareIndex square_index_of(SquareIndex rank_index, SquareIndex file_index){
 	return (kFilesPerBoard * rank_index) + file_index;
@@ -581,6 +597,19 @@ void BoardState::set_black_castle_queen(const bool value){
 
 void BoardState::compute_move_tables(){
 	// TODO: This
+}
+
+void BoardState::update_redundant_bitboards(){
+	occupied_ = core_.white_ | core_.black_;
+	unoccupied_ = ~occupied_;
+	if(core_.whites_turn_){
+		own_ = core_.white_;
+		opponent_ = core_.black_;
+	}else{
+		own_ = core_.black_;
+		opponent_ = core_.white_;
+	}
+	own_king_ = own_ & core_.kings_;
 }
 
 void BoardState::update_move_tables(const MoveRecord& record){
