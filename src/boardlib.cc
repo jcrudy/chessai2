@@ -46,9 +46,6 @@ SquareIndex BitBoard::population_count() const{
 	return (SquareIndex) __builtin_popcountll(value_);
 }
 
-BitBoard BitBoard::from_square_index(SquareIndex square){
-	return kSquares[square];
-}
 
 //void BitBoard::step_east(){
 //	value_ = ((value_ & (~kFileH.value_)) << 1);
@@ -609,7 +606,13 @@ void BoardState::update_redundant_bitboards(){
 		own_ = core_.black_;
 		opponent_ = core_.white_;
 	}
+	own_complement_ = ~own_;
 	own_king_ = own_ & core_.kings_;
+	opponent_rook_like_movers_ = opponent_ & core_.rooks_ & core_.queens_;
+	opponent_bishop_like_movers_ = opponent_ & core_.bishops_ & core_.queens_;
+	opponent_kinghts_ = opponent_ & core_.knights_;
+	opponent_pawns_ = opponent_ & core_.pawns_;
+
 }
 
 void BoardState::update_move_tables(const MoveRecord& record){

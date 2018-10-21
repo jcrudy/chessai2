@@ -52,7 +52,7 @@ public:
 	 * by the SquareIndex square.  This will be implemented as a lookup
 	 * for performance.
 	 */
-	static BitBoard from_square_index(SquareIndex square);
+	constexpr static BitBoard from_square_index(SquareIndex square);
 
 	/*
 	 * BitBoards should have all the normal bitwise operations
@@ -90,6 +90,13 @@ public:
 	}
 	constexpr BitBoard operator>>(const int n) const{
 		return BitBoard(value_ >> n);
+	}
+
+	/*
+	 * Automatic boolean conversion.
+	 */
+	constexpr operator bool() const{
+		return bool(value_);
 	}
 
 	/*
@@ -442,6 +449,10 @@ constexpr BitBoard kSquares[64] = {kSquare0, kSquare1, kSquare2, kSquare3, kSqua
 		kSquare47, kSquare48, kSquare49, kSquare50, kSquare51, kSquare52, kSquare53,
 		kSquare54, kSquare55, kSquare56, kSquare57, kSquare58, kSquare59, kSquare60,
 		kSquare61, kSquare62, kSquare63};
+
+constexpr BitBoard BitBoard::from_square_index(SquareIndex square){
+	return kSquares[square];
+}
 
 constexpr BitBoard kFileA = BitBoard(0x0101010101010101ULL);
 constexpr BitBoard kFileB = BitBoard(0x0202020202020202ULL);
@@ -967,6 +978,11 @@ private:
 	BitBoard own_;
 	BitBoard opponent_;
 	BitBoard own_king_;
+	BitBoard opponent_rook_like_movers_;
+	BitBoard opponent_bishop_like_movers_;
+	BitBoard opponent_kinghts_;
+	BitBoard opponent_pawns_;
+	BitBoard own_complement_;
 
 	/*
 	 * The halfmove_clock_ is the number of halfmoves relevant to the 50 move rule.
@@ -1214,14 +1230,137 @@ public:
 	 * legal move generation to prevent the current player from moving into check.
 	 */
 	BitBoard compute_unchecked_squares(SquareIndex square){
-		const BitBoard square_in_question_ = BitBoard::from_square_index(square);
+		const BitBoard square_in_question = BitBoard::from_square_index(square);
+		const BitBoard square_in_question_complement = ~square_in_question;
+		const BitBoard own_minus_square_in_question = own_ & (square_in_question_complement);
+
+		// The propagator is the set of squares attacking sliders can move along.  It
+		// will be used to compute which sliders are able to attack the king.
+		const BitBoard propagator = square_in_question | unoccupied_;
+
+//		const BitBoard rook_like_movers = opponent_ & core_.rooks_ & core_.queens_;
+//		const BitBoard bishop_like_movers = opponent_ & core_.bishops_ & core_.queens_;
 
 
+		BitBoard result = kFull;
+		BitBoard tmp;
+
+		/*
+		 * Check for attacking knights.
+		 */
+		tmp = own_king_.knight_step() & opponent_kinghts_;
+		if(tmp){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		/*
+		 * Check for pawn attacks.
+		 */
+		if(core_.whites_turn_){
+			tmp = own_king_.step_northeast() & opponent_pawns_;
+			if(tmp){
+				result &= tmp;
+			}
+			if(!result){
+				return result;
+			}
+			tmp = own_king_.step_northwest() & opponent_pawns_;
+			if(tmp){
+				result &= tmp;
+			}
+			if(!result){
+				return result;
+			}
+		}else{
+			tmp = own_king_.step_southeast() & opponent_pawns_;
+			if(tmp){
+				result &= tmp;
+			}
+			if(!result){
+				return result;
+			}
+			tmp = own_king_.step_southwest() & opponent_pawns_;
+			if(tmp){
+				result &= tmp;
+			}
+			if(!result){
+				return result;
+			}
+		}
+
+		/*
+		 * For each cardinal direction, check for sliding attackers.
+		 */
+		tmp = BitBoard::slide_east(own_king_, propagator).step_east();
+		if(tmp & opponent_rook_like_movers_){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		tmp = BitBoard::slide_northeast(own_king_, propagator).step_northeast();
+		if(tmp & opponent_bishop_like_movers_){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		tmp = BitBoard::slide_north(own_king_, propagator).step_north();
+		if(tmp & opponent_rook_like_movers_){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		tmp = BitBoard::slide_northwest(own_king_, propagator).step_northwest();
+		if(tmp & opponent_bishop_like_movers_){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		tmp = BitBoard::slide_west(own_king_, propagator).step_west();
+		if(tmp & opponent_rook_like_movers_){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		tmp = BitBoard::slide_southwest(own_king_, propagator).step_southwest();
+		if(tmp & opponent_bishop_like_movers_){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		tmp = BitBoard::slide_south(own_king_, propagator).step_south();
+		if(tmp & opponent_rook_like_movers_){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+
+		tmp = BitBoard::slide_southeast(own_king_, propagator).step_southeast();
+		if(tmp & opponent_bishop_like_movers_){
+			result &= tmp;
+		}
+//		if(!result){
+//			return result;
+//		}
+
+		return result;
 	}
 
-	BitBoard pinning_ray_intersection(SquareIndex square){
-
-	}
 
 	/*
 	 * Compute squares to which a queen could move from the given square.  This
@@ -1229,9 +1368,47 @@ public:
 	 * whatever is there.
 	 */
 	BitBoard compute_queen_moves(SquareIndex square){
+		const BitBoard square_board = BitBoard::from_square_index(square);
 
+		BitBoard result = kEmpty;
+		BitBoard tmp;
+
+		// Slide the queen in each cardinal direction, then step once
+		// in case of capture.
+		tmp = BitBoard::slide_east(square_board, unoccupied_);
+		tmp = tmp.step_east() & own_complement_;
+		result |= tmp;
+
+		tmp = BitBoard::slide_northeast(square_board, unoccupied_);
+		tmp = tmp.step_northeast() & own_complement_;
+		result |= tmp;
+
+		tmp = BitBoard::slide_north(square_board, unoccupied_);
+		tmp = tmp.step_north() & own_complement_;
+		result |= tmp;
+
+		tmp = BitBoard::slide_northwest(square_board, unoccupied_);
+		tmp = tmp.step_northwest() & own_complement_;
+		result |= tmp;
+
+		tmp = BitBoard::slide_west(square_board, unoccupied_);
+		tmp = tmp.step_west() & own_complement_;
+		result |= tmp;
+
+		tmp = BitBoard::slide_southwest(square_board, unoccupied_);
+		tmp = tmp.step_southwest() & own_complement_;
+		result |= tmp;
+
+		tmp = BitBoard::slide_south(square_board, unoccupied_);
+		tmp = tmp.step_south() & own_complement_;
+		result |= tmp;
+
+		tmp = BitBoard::slide_southeast(square_board, unoccupied_);
+		tmp = tmp.step_southeast() & own_complement_;
+		result |= tmp;
+
+		return result;
 	}
-
 };
 
 
