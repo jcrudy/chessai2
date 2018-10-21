@@ -23,3 +23,13 @@ TEST_CASE("Member functions make_move and unmake_move are inverses."){
 	REQUIRE(board == board_copy);
 
 }
+
+TEST_CASE("Queen move generation produces correct results."){
+	std::string starting_position =
+					"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+	BoardState board = BoardState::from_fen(starting_position);
+	BitBoard queen_move_targets = board.compute_queen_moves(3);
+	REQUIRE(!queen_move_targets);
+
+}
