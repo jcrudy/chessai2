@@ -280,23 +280,33 @@ public:
 /*
  * Given the rank and file indices, calculate the square index.
  */
-SquareIndex square_index_of(SquareIndex rank_index, SquareIndex file_index);
+SquareIndex square_index_of(const SquareIndex rank_index, const SquareIndex file_index);
 
 /*
  * Calculate the rank index (0 through 7) from the square index.
  */
-SquareIndex rank_index_of(SquareIndex square);
+SquareIndex rank_index_of(const SquareIndex square);
 
 /*
  * Calculate the file index (0 through 7) from the square index.
  */
-SquareIndex file_index_of(SquareIndex square);
+SquareIndex file_index_of(const SquareIndex square);
+
+/*
+ * Calculate the diagonal index (0 through 7) from the square index.
+ */
+SquareIndex diag_index_of(const SquareIndex square);
+
+/*
+ * Calculate the anti-diagonal index (0 through 7) from the square index.
+ */
+SquareIndex anti_diag_index_of(const SquareIndex square);
 
 /*
  * Convert from our internal square index coordinate system to
  * algebraic chess notation.
  */
-std::string square_index_to_algebraic(SquareIndex square);
+std::string square_index_to_algebraic(const SquareIndex square);
 
 /*
  * Convert from algebraic chess notation to
@@ -357,10 +367,26 @@ enum class PieceKind : unsigned char {
 };
 
 /*
- * Return the kind of piece that piece is.  Peice kind is just a piece
+ * Return the kind of piece that piece is.  Piece kind is just a piece
  * with color information removed.
  */
 PieceKind kind_of(const Piece piece);
+
+/*
+ * Return true if and only if the given piece kind is a diagonal slider.
+ */
+bool is_diagonal_slider(const PieceKind kind);
+
+/*
+ * Return true if and only if the given piece kind is a non-diagonal slider.
+ */
+bool is_non_diagonal_slider(const PieceKind kind);
+
+
+/*
+ * Return true if and only if the given piece kind is a slider.
+ */
+bool is_slider(const PieceKind kind);
 
 enum class Color : unsigned char {
 	NO_COLOR,
@@ -978,11 +1004,16 @@ private:
 	BitBoard own_;
 	BitBoard opponent_;
 	BitBoard own_king_;
-	BitBoard opponent_rook_like_movers_;
-	BitBoard opponent_bishop_like_movers_;
+	BitBoard opponent_non_diagonal_sliders_;
+	BitBoard opponent_diagonal_sliders_;
 	BitBoard opponent_kinghts_;
 	BitBoard opponent_pawns_;
 	BitBoard own_complement_;
+
+	/*
+	 * Redundant king tracker.
+	 */
+	SquareIndex own_king_square_;
 
 	/*
 	 * The halfmove_clock_ is the number of halfmoves relevant to the 50 move rule.
@@ -1031,17 +1062,39 @@ private:
 	SquareIndex en_passant_square_;
 
 	/*
-	 * These tables index available moves.  Each one represents a
+	 * These tables index available extended moves.  Each one represents a
 	 * 64 x 64 boolean table, with a 1 at position [i,j] of the
 	 * move_targets_ (move_origins_) table if and only if there
-	 * exists a move from (to) square i to (from) square j.
-	 * By updating these tables with every new move, we can avoid
-	 * re-generating all moves at every turn, instead simply
+	 * exists an extended move from (to) square i to (from) square j.
+	 * By updating these tables with every new extended move, we can avoid
+	 * re-generating all extended moves at every turn, instead simply
 	 * reading them off the table.  The idea is that keeping these
 	 * tables up-to-date can be done in an efficient way.
+	 *
+	 * Note the difference between a move and an extended move.  The set of
+	 * extended moves at a given position is a superset of the set of moves not
+	 * including promotions.  A pair (i, j) is an extended move if and only if
+	 * any of the following is true:
+	 *
+	 * 1. The exists a move from square index i to square index j, or
+	 *
+	 * 2. There would exist a move from square index i to square index j
+	 *    under some change to the occupancy of j, for example by changing
+	 *    the color of the piece at j or by placing a piece at j, or
+	 *
+	 * 3. Any of the above would hold if the rules allowed moving into check.
+	 *
+	 * 4. Any of the above would hold if it were the other player's turn.
+	 *
+	 * The extended move is defined to allow for the localization of changes to
+	 * the available moves.  When reading off moves, it's necessary to determine
+	 * whether each extended move is an actual move.
+	 *
 	 */
 	std::array<BitBoard, kSquaresPerBoard> move_targets_;
 	std::array<BitBoard, kSquaresPerBoard> move_origins_;
+
+
 
 	/*
 	 * Break the rank_string into tokens.  It is assumed that rank_string
@@ -1156,7 +1209,7 @@ public:
 	/*
 	 * Make the redundant bitboards consistent with the current core_.
 	 */
-	void update_redundant_bitboards();
+	void update_redundant_data();
 
 	/*
 	 * Compute the available moves based on current state and set
@@ -1220,154 +1273,51 @@ public:
 	std::string to_fen() const;
 
 	/*
-	 * Assuming no piece is currently located at the given square, compute the
-	 * set of all squares at which a piece could be placed without the own king
-	 * being in check.  If the own king is not currently in check, this will be
-	 * the set of all squares.  If the own king is currently in check by multiple
-	 * pieces, this will be the empty set.  Otherwise, it is the set of squares
-	 * that will either block or capture the attacking piece.  This result will
-	 * be used to restrict the movement of the piece at the given square during
-	 * legal move generation to prevent the current player from moving into check.
+	 * Assuming an appropriate piece is located at the given square, compute the set
+	 * of squares to which the piece is pinned by a sliding piece.  If no such
+	 * sliding piece exists, return the set of all squares.
 	 */
-	BitBoard compute_unchecked_squares(SquareIndex square){
-		const BitBoard square_in_question = BitBoard::from_square_index(square);
-		const BitBoard square_in_question_complement = ~square_in_question;
-		const BitBoard own_minus_square_in_question = own_ & (square_in_question_complement);
+	BitBoard compute_pinned_squares(const SquareIndex square);
 
-		// The propagator is the set of squares attacking sliders can move along.  It
-		// will be used to compute which sliders are able to attack the king.
-		const BitBoard propagator = square_in_question | unoccupied_;
+	/*
+	 * Compute squares to which a friendly piece could move to block the current
+	 * checking piece.  This function assumes the king is currently in single check
+	 * by the piece at the given square.
+	 */
+	BitBoard compute_blocking_mask(SquareIndex square);
 
-//		const BitBoard rook_like_movers = opponent_ & core_.rooks_ & core_.queens_;
-//		const BitBoard bishop_like_movers = opponent_ & core_.bishops_ & core_.queens_;
+	/*
+	 * Compute squares which may contain a pinned piece assuming the own king
+	 * is located at square.  The resulting squares are not guaranteed to
+	 * contain a pinned piece, but all pinned pieces must exist on these
+	 * squares.
+	 */
+	BitBoard compute_possible_pinning_mask(const SquareIndex square);
 
-
-		BitBoard result = kFull;
-		BitBoard tmp;
-
-		/*
-		 * Check for attacking knights.
-		 */
-		tmp = own_king_.knight_step() & opponent_kinghts_;
-		if(tmp){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		/*
-		 * Check for pawn attacks.
-		 */
-		if(core_.whites_turn_){
-			tmp = own_king_.step_northeast() & opponent_pawns_;
-			if(tmp){
-				result &= tmp;
-			}
-			if(!result){
-				return result;
-			}
-			tmp = own_king_.step_northwest() & opponent_pawns_;
-			if(tmp){
-				result &= tmp;
-			}
-			if(!result){
-				return result;
-			}
-		}else{
-			tmp = own_king_.step_southeast() & opponent_pawns_;
-			if(tmp){
-				result &= tmp;
-			}
-			if(!result){
-				return result;
-			}
-			tmp = own_king_.step_southwest() & opponent_pawns_;
-			if(tmp){
-				result &= tmp;
-			}
-			if(!result){
-				return result;
-			}
-		}
-
-		/*
-		 * For each cardinal direction, check for sliding attackers.
-		 */
-		tmp = BitBoard::slide_east(own_king_, propagator).step_east();
-		if(tmp & opponent_rook_like_movers_){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		tmp = BitBoard::slide_northeast(own_king_, propagator).step_northeast();
-		if(tmp & opponent_bishop_like_movers_){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		tmp = BitBoard::slide_north(own_king_, propagator).step_north();
-		if(tmp & opponent_rook_like_movers_){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		tmp = BitBoard::slide_northwest(own_king_, propagator).step_northwest();
-		if(tmp & opponent_bishop_like_movers_){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		tmp = BitBoard::slide_west(own_king_, propagator).step_west();
-		if(tmp & opponent_rook_like_movers_){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		tmp = BitBoard::slide_southwest(own_king_, propagator).step_southwest();
-		if(tmp & opponent_bishop_like_movers_){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		tmp = BitBoard::slide_south(own_king_, propagator).step_south();
-		if(tmp & opponent_rook_like_movers_){
-			result &= tmp;
-		}
-		if(!result){
-			return result;
-		}
-
-		tmp = BitBoard::slide_southeast(own_king_, propagator).step_southeast();
-		if(tmp & opponent_bishop_like_movers_){
-			result &= tmp;
-		}
-//		if(!result){
-//			return result;
-//		}
-
-		return result;
-	}
-
+	/*
+	 * Compute the squares containing a piece that is currently threatening the
+	 * given square.  This is most useful for computing whether and by whom the
+	 * king is in check.
+	 */
+	BitBoard compute_threatening_squares(SquareIndex square);
 
 	/*
 	 * Compute squares to which a queen could move from the given square.  This
 	 * function assumes a queen is present on the given square, and will ignore
-	 * whatever is there.
+	 * whatever is there.  Pinning is checked for.
 	 */
-	BitBoard compute_queen_moves(SquareIndex square){
+	BitBoard compute_queen_moves_possible_pin(const SquareIndex square){
+		BitBoard no_pin_moves = compute_queen_moves_no_pin(square);
+		BitBoard pin_board = compute_pinned_squares(square);
+		return no_pin_moves & pin_board;
+	}
+
+	/*
+	 * Compute squares to which a queen could move from the given square.  This
+	 * function assumes a queen is present on the given square, and will ignore
+	 * whatever is there, and assumes that the queen is not pinned.
+	 */
+	BitBoard compute_queen_moves_no_pin(const SquareIndex square){
 		const BitBoard square_board = BitBoard::from_square_index(square);
 
 		BitBoard result = kEmpty;

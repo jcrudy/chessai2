@@ -79,19 +79,27 @@ SquareIndex BitBoard::population_count() const{
 //	value_ = (value_ & (~kFileA.value_)) >> 9;
 //}
 
-SquareIndex square_index_of(SquareIndex rank_index, SquareIndex file_index){
+SquareIndex square_index_of(const SquareIndex rank_index, const SquareIndex file_index){
 	return (kFilesPerBoard * rank_index) + file_index;
 }
 
-SquareIndex rank_index_of(SquareIndex square){
+SquareIndex rank_index_of(const SquareIndex square){
 	return (square / kFilesPerBoard);
 }
 
-SquareIndex file_index_of(SquareIndex square){
+SquareIndex file_index_of(const SquareIndex square){
 	return square % kFilesPerBoard;
 }
 
-std::string square_index_to_algebraic(SquareIndex square){
+SquareIndex diag_index_of(const SquareIndex square){
+	return((rank_index_of(square) - file_index_of(square)) & 15);
+}
+
+SquareIndex anti_diag_index_of(const SquareIndex square){
+	return(7 ^ (rank_index_of(square) + file_index_of(square)));
+}
+
+std::string square_index_to_algebraic(const SquareIndex square){
 	char algebraic_file = 'a' + file_index_of(square);
 	std::string result;
 	result += algebraic_file;
@@ -100,7 +108,7 @@ std::string square_index_to_algebraic(SquareIndex square){
 //	return "" + algebraic_file + std::to_string(((int) rank_index_of(square) + 1));
 }
 
-SquareIndex algebraic_to_square_index(std::string algebraic){
+SquareIndex algebraic_to_square_index(const std::string algebraic){
 	SquareIndex file_index = (SquareIndex) algebraic[0] - 'a';
 	SquareIndex rank_index = (SquareIndex) std::stoi(algebraic.substr(1)) - 1;
 	return square_index_of(rank_index, file_index);
@@ -251,6 +259,41 @@ PieceKind kind_of(const Piece piece){
 		 * are enumerated above, but CDT was complaining.
 		 */
 		return PieceKind::NO_PIECE;
+	}
+}
+
+bool is_diagonal_slider(const PieceKind kind){
+	switch(kind){
+	case PieceKind::QUEEN:
+		return true;
+	case PieceKind::BISHOP:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool is_non_diagonal_slider(const PieceKind kind){
+	switch(kind){
+	case PieceKind::QUEEN:
+		return true;
+	case PieceKind::ROOK:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool is_slider(const PieceKind kind){
+	switch(kind){
+	case PieceKind::QUEEN:
+		return true;
+	case PieceKind::ROOK:
+		return true;
+	case PieceKind::BISHOP:
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -503,6 +546,8 @@ void BoardState::raw_change_en_passant(Piece en_passant_piece_before,
 	}
 }
 
+
+
 BoardState::BoardState(BoardState&& rhs) = default;
 
 BoardState::BoardState(){
@@ -596,23 +641,24 @@ void BoardState::compute_move_tables(){
 	// TODO: This
 }
 
-void BoardState::update_redundant_bitboards(){
-	occupied_ = core_.white_ | core_.black_;
+void BoardState::update_redundant_data(){
+	occupied_ = (core_.white_ | core_.black_) ^ core_.en_passant_;
 	unoccupied_ = ~occupied_;
 	if(core_.whites_turn_){
 		own_ = core_.white_;
-		opponent_ = core_.black_;
+		opponent_ = core_.black_ ^ core_.en_passant_;
 	}else{
 		own_ = core_.black_;
-		opponent_ = core_.white_;
+		opponent_ = core_.white_ ^ core_.en_passant_;
 	}
 	own_complement_ = ~own_;
 	own_king_ = own_ & core_.kings_;
-	opponent_rook_like_movers_ = opponent_ & core_.rooks_ & core_.queens_;
-	opponent_bishop_like_movers_ = opponent_ & core_.bishops_ & core_.queens_;
+	opponent_non_diagonal_sliders_ = opponent_ & core_.rooks_ & core_.queens_;
+	opponent_diagonal_sliders_ = opponent_ & core_.bishops_ & core_.queens_;
 	opponent_kinghts_ = opponent_ & core_.knights_;
 	opponent_pawns_ = opponent_ & core_.pawns_;
 
+	own_king_square_ = own_king_.greatest_square_index();
 }
 
 void BoardState::update_move_tables(const MoveRecord& record){
@@ -1052,6 +1098,306 @@ std::string BoardState::to_fen() const{
 	result += en_passant_part;
 	result += ' ';
 	result += clock_part;
+
+	return result;
+}
+
+BitBoard BoardState::compute_pinned_squares(const SquareIndex square){
+	const BitBoard square_in_question = BitBoard::from_square_index(square);
+	const BitBoard square_in_question_complement = ~square_in_question;
+	const BitBoard own_minus_square_in_question = own_ & (square_in_question_complement);
+
+	// The propagator is the set of squares attacking sliders can move along.  It
+	// will be used to compute which sliders are able to attack the king.
+	const BitBoard propagator = square_in_question | unoccupied_;
+
+	const SquareIndex square_rank_index = rank_index_of(square);
+	const SquareIndex square_file_index = file_index_of(square);
+	const SquareIndex square_diag_index = diag_index_of(square);
+	const SquareIndex square_anti_diag_index = anti_diag_index_of(square);
+	const SquareIndex king_rank_index = rank_index_of(own_king_square_);
+	const SquareIndex king_file_index = file_index_of(own_king_square_);
+	const SquareIndex king_diag_index = diag_index_of(own_king_square_);
+	const SquareIndex king_anti_diag_index = anti_diag_index_of(own_king_square_);
+
+	BitBoard ray;
+	// At most one of the following can match.
+	if(square_rank_index == king_rank_index){
+		if(square_file_index > king_file_index){
+			// Square is to the east of king
+			ray = BitBoard::slide_east(own_king_, propagator).step_east();
+		}else{// square_file_index < king_file_index
+			// Square is to the west of king
+			ray = BitBoard::slide_west(own_king_, propagator).step_west();
+		}
+
+		if(ray & opponent_non_diagonal_sliders_){
+			return ray;
+		}else{
+			return kFull;
+		}
+	}else if(square_file_index == king_file_index){
+		if(square_rank_index > king_rank_index){
+			// Square is to the north of king
+			ray = BitBoard::slide_north(own_king_, propagator).step_north();
+		}else{// square_rank_index < king_rank_index
+			// Square is to the south of king
+			ray = BitBoard::slide_south(own_king_, propagator).step_south();
+		}
+
+		if(ray & opponent_non_diagonal_sliders_){
+			return ray;
+		}else{
+			return kFull;
+		}
+	}else if(square_diag_index == king_diag_index){
+		if(square_rank_index > king_rank_index){
+			// Square is northeast of king
+			ray = BitBoard::slide_northeast(own_king_, propagator).step_northeast();
+		}else{ //square_rank_index < king_rank_index
+			// Square is southwest of king
+			ray = BitBoard::slide_southwest(own_king_, propagator).step_southwest();
+		}
+
+		if(ray & opponent_diagonal_sliders_){
+			return ray;
+		}else{
+			return kFull;
+		}
+	}else if(square_anti_diag_index == king_anti_diag_index){
+		if(square_rank_index > king_rank_index){
+			// Square is northwest of king
+			ray = BitBoard::slide_northwest(own_king_, propagator).step_northwest();
+		}else{ //square_rank_index < king_rank_index
+			// Square is southeast of king
+			ray = BitBoard::slide_southeast(own_king_, propagator).step_southeast();
+		}
+
+		if(ray & opponent_diagonal_sliders_){
+			return ray;
+		}else{
+			return kFull;
+		}
+	}
+
+	// If we got here, there was no pinning.
+	return kFull;
+
+}
+
+BitBoard BoardState::compute_blocking_mask(SquareIndex square){
+	const BitBoard square_board = BitBoard::from_square_index(square);
+	const Piece attacking_piece = piece_map_[square];
+	const PieceKind attacking_piece_kind = kind_of(attacking_piece);
+	if(!is_slider(attacking_piece_kind)){
+		// In this case the attacking piece can't be blocked.
+		return kEmpty;
+	}
+
+	// Since we are assuming that the king is currently being threatened
+	// by only the piece at the given square, we now know that any squares between
+	// the king and the attacker are potential blocking positions.
+	const SquareIndex square_rank_index = rank_index_of(square);
+	const SquareIndex square_file_index = file_index_of(square);
+	const SquareIndex square_diag_index = diag_index_of(square);
+	const SquareIndex square_anti_diag_index = anti_diag_index_of(square);
+	const SquareIndex king_rank_index = rank_index_of(own_king_square_);
+	const SquareIndex king_file_index = file_index_of(own_king_square_);
+	const SquareIndex king_diag_index = diag_index_of(own_king_square_);
+	const SquareIndex king_anti_diag_index = anti_diag_index_of(own_king_square_);
+
+
+	// At most one of the following can match.
+	if(square_rank_index == king_rank_index){
+		if(square_file_index > king_file_index){
+			// Square is to the east of king
+			return BitBoard::slide_east(own_king_, unoccupied_).step_east() ^ own_king_;
+		}else{// square_file_index < king_file_index
+			// Square is to the west of king
+			return BitBoard::slide_west(own_king_, unoccupied_).step_west() ^ own_king_;
+		}
+	}else if(square_file_index == king_file_index){
+		if(square_rank_index > king_rank_index){
+			// Square is to the north of king
+			return BitBoard::slide_north(own_king_, unoccupied_) ^ own_king_;
+		}else{// square_rank_index < king_rank_index
+			// Square is to the south of king
+			return BitBoard::slide_south(own_king_, unoccupied_) ^ own_king_;
+		}
+	}else if(square_diag_index == king_diag_index){
+		if(square_rank_index > king_rank_index){
+			// Square is northeast of king
+			return BitBoard::slide_northeast(own_king_, unoccupied_).step_northeast() ^ own_king_;
+		}else{ //square_rank_index < king_rank_index
+			// Square is southwest of king
+			return BitBoard::slide_southwest(own_king_, unoccupied_).step_southwest() ^ own_king_;
+		}
+	}else if(square_anti_diag_index == king_anti_diag_index){
+		if(square_rank_index > king_rank_index){
+			// Square is northwest of king
+			return BitBoard::slide_northwest(own_king_, unoccupied_).step_northwest() ^ own_king_;
+		}else{ //square_rank_index < king_rank_index
+			// Square is southeast of king
+			return BitBoard::slide_southeast(own_king_, unoccupied_).step_southeast() ^ own_king_;
+		}
+	}
+	// If we got here, the assumptions of this function were not satisfied.
+	throw "Assumption violated in call to compute_blocking_mask.";
+}
+
+BitBoard BoardState::compute_possible_pinning_mask(const SquareIndex square){
+	const BitBoard square_board = BitBoard::from_square_index(square);
+	BitBoard result = kEmpty;
+	BitBoard tmp;
+
+	tmp = BitBoard::slide_east(square_board, unoccupied_);
+	tmp = tmp.step_east() & own_;
+	result |= tmp;
+
+	tmp = BitBoard::slide_northeast(square_board, unoccupied_);
+	tmp = tmp.step_northeast() & own_;
+	result |= tmp;
+
+	tmp = BitBoard::slide_north(square_board, unoccupied_);
+	tmp = tmp.step_north() & own_;
+	result |= tmp;
+
+	tmp = BitBoard::slide_northwest(square_board, unoccupied_);
+	tmp = tmp.step_northwest() & own_;
+	result |= tmp;
+
+	tmp = BitBoard::slide_west(square_board, unoccupied_);
+	tmp = tmp.step_west() & own_;
+	result |= tmp;
+
+	tmp = BitBoard::slide_southwest(square_board, unoccupied_);
+	tmp = tmp.step_southwest() & own_;
+	result |= tmp;
+
+	tmp = BitBoard::slide_south(square_board, unoccupied_);
+	tmp = tmp.step_south() & own_;
+	result |= tmp;
+
+	tmp = BitBoard::slide_southeast(square_board, unoccupied_);
+	tmp = tmp.step_southeast() & own_;
+	result |= tmp;
+
+	return result;
+}
+
+BitBoard BoardState::compute_threatening_squares(SquareIndex square){
+	const BitBoard square_board = BitBoard::from_square_index(square);
+	BitBoard result = kEmpty;
+	BitBoard tmp;
+
+	/*
+	 * Check for attacking knights.
+	 */
+	tmp = square_board.knight_step() & opponent_kinghts_;
+	if(tmp){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+	/*
+	 * Check for pawn attacks.
+	 */
+	if(core_.whites_turn_){
+		tmp = square_board.step_northeast() & opponent_pawns_;
+		if(tmp){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+		tmp = square_board.step_northwest() & opponent_pawns_;
+		if(tmp){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+	}else{
+		tmp = square_board.step_southeast() & opponent_pawns_;
+		if(tmp){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+		tmp = square_board.step_southwest() & opponent_pawns_;
+		if(tmp){
+			result &= tmp;
+		}
+		if(!result){
+			return result;
+		}
+	}
+
+	/*
+	 * For each cardinal direction, check for sliding attackers.
+	 */
+	tmp = BitBoard::slide_east(square_board, unoccupied_).step_east();
+	if(tmp & opponent_non_diagonal_sliders_){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+
+	tmp = BitBoard::slide_northeast(square_board, unoccupied_).step_northeast();
+	if(tmp & opponent_diagonal_sliders_){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+
+	tmp = BitBoard::slide_north(square_board, unoccupied_).step_north();
+	if(tmp & opponent_non_diagonal_sliders_){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+
+	tmp = BitBoard::slide_northwest(square_board, unoccupied_).step_northwest();
+	if(tmp & opponent_diagonal_sliders_){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+
+	tmp = BitBoard::slide_west(square_board, unoccupied_).step_west();
+	if(tmp & opponent_non_diagonal_sliders_){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+
+	tmp = BitBoard::slide_southwest(square_board, unoccupied_).step_southwest();
+	if(tmp & opponent_diagonal_sliders_){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+
+	tmp = BitBoard::slide_south(square_board, unoccupied_).step_south();
+	if(tmp & opponent_non_diagonal_sliders_){
+		result &= tmp;
+	}
+	if(!result){
+		return result;
+	}
+
+	tmp = BitBoard::slide_southeast(square_board, unoccupied_).step_southeast();
+	if(tmp & opponent_diagonal_sliders_){
+		result &= tmp;
+	}
 
 	return result;
 }

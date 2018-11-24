@@ -29,7 +29,7 @@ TEST_CASE("Queen move generation produces correct results."){
 					"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 	BoardState board = BoardState::from_fen(starting_position);
-	BitBoard queen_move_targets = board.compute_queen_moves(3);
+	BitBoard queen_move_targets = board.compute_queen_moves_no_pin(3);
 	REQUIRE(!queen_move_targets);
 
 }
