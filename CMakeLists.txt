@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.12)
 project(chessai2 VERSION 0.1.0 LANGUAGES CXX)
 
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+conan_basic_setup(TARGETS)
+
 add_library(boardlib src/boardlib.cc)
 add_executable(chessai2 src/chessai2.cc)
 add_executable(run_tests test/run_tests.cc test/test_fen_io.cc test/test_zobrist.cc
@@ -12,6 +15,7 @@ target_include_directories(boardlib
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src
+		${CONAN_INCLUDE_DIRS_boost_multiprecision}
 )
 
 target_include_directories(run_tests
@@ -20,8 +24,10 @@ target_include_directories(run_tests
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src
+		${CONAN_INCLUDE_DIRS_boost_multiprecision}
 )
 
+target_link_libraries(boardlib CONAN_PKG::boost_multiprecision)
 target_link_libraries(run_tests boardlib)
 target_link_libraries(chessai2 boardlib)
 
